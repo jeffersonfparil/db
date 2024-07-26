@@ -1,0 +1,8 @@
+.github/
+.vscode/
+inst/
+_libs/
+shell.nix
+.*sqlite
+.Rprofile
+conda.yml

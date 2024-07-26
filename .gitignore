@@ -1,6 +1,7 @@
 # History files
 .Rhistory
 .Rapp.history
+.Rprofile
 
 # Session Data files
 .RData
@@ -47,3 +48,12 @@ po/*~
 
 # RStudio Connect folder
 rsconnect/
+
+# Vscode
+.vscode
+
+# Nix stuff
+_libs/
+
+# SQL databases
+*.sqlite
