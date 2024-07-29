@@ -2,6 +2,28 @@
 ### Data importation functions ###
 ##################################
 
+#' Check the validity of importation function inputs
+#' @param df number of entries or samples or genotypes (Default=100)
+#' @param db number of measurement dates (Default=10)
+#' @param table_name number of measurement sites (Default=10)
+#' @param check_UIDs number of treatments (Default=10)
+#' @returns
+#'  - Ok:
+#'      NULL
+#'  - Err: dbError
+#' @examples
+#' list_fnames_tables = fn_simulate_tables(
+#'      n_entries=50,
+#'      n_dates=3,
+#'      n_sites=3,
+#'      n_treatments=3,
+#'      n_loci=10e3,
+#'      save_data_tables=TRUE)$list_fnames_tables
+#' df = utils::read.delim(list_fnames_tables$fname_phenotypes, header=TRUE)
+#' db = DBI::dbConnect(drv=RSQLite::SQLite(), dbname="test.sqlite")
+#' null_error = fn_check_import_inputs(df=df, db=db, table_name="phenotypes", check_UIDs=FALSE)
+#' non_null_error = fn_check_import_inputs(df=df[, -1:-5], db=db, table_name="phenotypes", check_UIDs=FALSE)
+#' @export
 fn_check_import_inputs = function(df, db, table_name, check_UIDs=FALSE) {
     ################################################################
     ### TEST
@@ -110,13 +132,42 @@ fn_check_import_inputs = function(df, db, table_name, check_UIDs=FALSE) {
     return(error)
 }
 
-fn_remove_quotes_and_newlines_characters_in_data = function(df, verbose=TRUE) {
+#' Remove quotes and newline characters ("\n" in Linux and "\r\n" in Windows)
+#' @param df number of entries or samples or genotypes (Default=100)
+#' @param db number of measurement dates (Default=10)
+#' @param table_name number of measurement sites (Default=10)
+#' @param check_UIDs number of treatments (Default=10)
+#' @returns
+#'  - Ok:
+#'      NULL
+#'  - Err: dbError
+#' @examples
+#' list_fnames_tables = fn_simulate_tables(
+#'      n_entries=50,
+#'      n_dates=3,
+#'      n_sites=3,
+#'      n_treatments=3,
+#'      n_loci=10e3,
+#'      save_data_tables=TRUE)$list_fnames_tables
+#' df = utils::read.delim(list_fnames_tables$fname_phenotypes, header=TRUE)
+#' db = DBI::dbConnect(drv=RSQLite::SQLite(), dbname="test.sqlite")
+#' null_error = fn_check_import_inputs(df=df, db=db, table_name="phenotypes", check_UIDs=FALSE)
+#' non_null_error = fn_check_import_inputs(df=df[, -1:-5], db=db, table_name="phenotypes", check_UIDs=FALSE)
+#' @export
+fn_remove_quotes_and_newline_characters_in_data = function(df, verbose=TRUE) {
     ################################################################
     ### TEST
     # list_fnames_tables = fn_simulate_tables(save_data_tables=TRUE)$list_fnames_tables
     # df = utils::read.delim(list_fnames_tables$fname_phenotypes, header=TRUE)
     # verbose = FALSE
     ################################################################
+    if ((nrow(df)==0) || (ncol(df)==0)) {
+        error = methods::new("dbError",
+            code=000,
+            message=paste0("Error in fn_remove_quotes_and_newline_characters_in_data(...): ",
+            "The input data frame sis empty."))
+        return(error)
+    }
     if (verbose) {
         print("Removing single and double quotes from the table:")
         pb = utils::txtProgressBar(min=0, max=ncol(df), style=3)
@@ -946,7 +997,7 @@ fn_initialise_db = function(fname_db, list_df_data_tables, verbose=TRUE) {
         # table_name = GLOBAL_df_valid_tables()$NAME[GLOBAL_df_valid_tables()$CLASS=="data"][2]
         df = list_df_data_tables[[paste0("df_", table_name)]]
         ### Remove quotes which will interfere with SQL queries
-        df = fn_remove_quotes_and_newlines_characters_in_data(df, verbose=FALSE)
+        df = fn_remove_quotes_and_newline_characters_in_data(df, verbose=FALSE)
         if (!is.null(df)) {
             list_tables = fn_prepare_data_table_and_extract_base_tables(df=df, db=db, table_name=table_name, verbose=verbose)
             if (methods::is(list_tables, "dbError")) {
@@ -1046,7 +1097,7 @@ fn_update_database = function(fname_db, df, table_name, verbose=TRUE) {
     # df = list_tables_from_genotypes$df_entries; table_name = "entries"
     ################################################################
     ### Remove quotes which will interfere with SQL queries
-    df = fn_remove_quotes_and_newlines_characters_in_data(df, verbose=FALSE)
+    df = fn_remove_quotes_and_newline_characters_in_data(df, verbose=FALSE)
     ### Connect to the database
     db = DBI::dbConnect(drv=RSQLite::SQLite(), dbname=fname_db)
     if (GLOBAL_df_valid_tables()$CLASS[GLOBAL_df_valid_tables()$NAME == table_name] == "data") {

@@ -2,4 +2,6 @@
 
 export(GLOBAL_df_valid_tables)
 export(GLOBAL_list_required_colnames_per_table)
+export(fn_check_import_inputs)
+export(fn_remove_quotes_and_newline_characters_in_data)
 export(fn_simulate_tables)
