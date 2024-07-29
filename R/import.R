@@ -198,6 +198,7 @@ fn_remove_quotes_and_newline_characters_in_data = function(df, verbose=TRUE) {
     return(df)
 }
 
+#' @export
 fn_add_POSIX_time = function(df, db, table_name, bool_add_FVI_year_season=TRUE, verbose=TRUE) {
     ################################################################
     ### TEST
@@ -257,6 +258,7 @@ fn_add_POSIX_time = function(df, db, table_name, bool_add_FVI_year_season=TRUE, 
     return(df)
 }
 
+#' @export
 fn_rename_columns_and_remove_duplicate_columns = function(df, db, table_name, verbose=TRUE) {
     ################################################################
     ### TEST
@@ -338,6 +340,7 @@ fn_rename_columns_and_remove_duplicate_columns = function(df, db, table_name, ve
     return(df)
 }
 
+#' @export
 fn_define_hash_and_UID_prefix = function(table_name) {
     if (table_name == "loci") {
         prefix_of_HASH_and_UID_columns = "LOCUS"
@@ -348,6 +351,7 @@ fn_define_hash_and_UID_prefix = function(table_name) {
     return(prefix_of_HASH_and_UID_columns)
 }
 
+#' @export
 fn_add_hash_UID_and_remove_duplicate_rows = function(df, db, table_name, verbose=TRUE) {
     ################################################################
     ### TEST
@@ -458,6 +462,7 @@ fn_add_hash_UID_and_remove_duplicate_rows = function(df, db, table_name, verbose
     return(df)
 }
 
+#' @export
 fn_convert_allele_frequency_table_into_blobs_and_dfs = function(df, db, table_name="genotypes", verbose=TRUE) {
     ################################################################
     ### TEST
@@ -528,6 +533,7 @@ fn_convert_allele_frequency_table_into_blobs_and_dfs = function(df, db, table_na
     ))
 }
 
+#' @export
 fn_prepare_data_table_and_extract_base_tables = function(df, db, table_name, verbose=TRUE) {
     ################################################################
     ### TEST
@@ -696,6 +702,7 @@ fn_prepare_data_table_and_extract_base_tables = function(df, db, table_name, ver
     ))
 }
 
+#' @export
 fn_set_classification_of_rows = function(df, db, table_name, verbose=verbose) {
     ################################################################
     ### TEST
@@ -765,6 +772,7 @@ fn_set_classification_of_rows = function(df, db, table_name, verbose=verbose) {
     return(list_set_classification_of_rows)
 }
 
+#' @export
 fn_set_classification_of_columns = function(df, db, table_name, verbose=TRUE) {
     ################################################################
     ### TEST
@@ -813,6 +821,7 @@ fn_set_classification_of_columns = function(df, db, table_name, verbose=TRUE) {
     return(list_set_classification_of_columns)
 }
 
+#' @export
 fn_add_new_columns = function(df, db, table_name, verbose=TRUE) {
     ################################################################
     ### TEST
@@ -862,6 +871,7 @@ fn_add_new_columns = function(df, db, table_name, verbose=TRUE) {
 ### Note that it is easier to:
 ###     (1) replace the entire table, i.e. when the source table is a complete superset of the destination table, and
 ###     (2) add new rows
+#' @export
 fn_append = function(df, db, table_name, verbose=TRUE) {
     ################################################################
     ### TEST
@@ -975,6 +985,7 @@ fn_append = function(df, db, table_name, verbose=TRUE) {
     return(db)
 }
 
+#' @export
 fn_initialise_db = function(fname_db, list_df_data_tables, verbose=TRUE) {
     ################################################################
     ### TEST
@@ -1058,6 +1069,7 @@ fn_initialise_db = function(fname_db, list_df_data_tables, verbose=TRUE) {
     return(0)
 }
 
+#' @export
 fn_update_database = function(fname_db, df, table_name, verbose=TRUE) {
     ################################################################
     ### TEST

@@ -2,6 +2,12 @@
 
 A simple SQLite database in R for genomic prediction.
 
+## Installation
+
+```R
+devtools::install_github("jeffersonfparil/db")
+```
+
 ## Schema
 
 Each database will correspond to a single species with the following schema:
