@@ -2,6 +2,7 @@
 ### Data exportation functions ###
 ##################################
 
+#' @export
 fn_check_export_inputs = function(db, table_name, list_filters=NULL, vec_columns_to_show="*", unique_column_name=NULL) {
     ################################################################
     ### TEST
@@ -118,6 +119,7 @@ fn_check_export_inputs = function(db, table_name, list_filters=NULL, vec_columns
 ### Numerics are always a range but min and max can be the same value and the same numeric column can be included with 
 ### different or the same ranges which is equivalent to using a vector of value or range of values to filter
 ### Strings are always a vector of strings
+#' @export
 fn_query_and_left_join_tables = function(db, list_tables_and_filters, unique_column_name=NULL, verbose=TRUE) {
     ################################################################
     ### TEST
@@ -301,6 +303,7 @@ fn_query_and_left_join_tables = function(db, list_tables_and_filters, unique_col
     return(df_query)
 }
 
+#' @export
 fn_assess_df_subsets = function(db, table_name, list_filters=NULL, vec_columns_levels_to_count=NULL, verbose=TRUE) {
     ################################################################
     ### TEST
@@ -406,6 +409,7 @@ fn_assess_df_subsets = function(db, table_name, list_filters=NULL, vec_columns_l
     return(list_out)
 }
 
+#' @export
 fn_deserialise_genotype_data = function(db, df_genotypes, verbose=TRUE) {
     ################################################################
     ### TEST
