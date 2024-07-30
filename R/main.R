@@ -46,27 +46,27 @@ fn_create_database_from_xlsx = function(fname_xlsx, fname_genotype_tsv=NULL, ver
     out = fn_initialise_db(fname_db=fname_db, list_df_data_tables=list_df_data_tables, verbose=TRUE)
     if (verbose) {
         print("Information of each table:")
-        db = DBI::dbConnect(drv=RSQLite::SQLite(), dbname=fname_db)
+        database = DBI::dbConnect(drv=RSQLite::SQLite(), dbname=fname_db)
         for (table_name in GLOBAL_df_valid_tables()$NAME) {
             # table_name = GLOBAL_df_valid_tables()$NAME[1]
-            df_table_info_summary = DBI::dbGetQuery(conn=db, statement=paste0("PRAGMA TABLE_INFO(", table_name, ")"))[, 2:3]
+            df_table_info_summary = DBI::dbGetQuery(conn=database, statement=paste0("PRAGMA TABLE_INFO(", table_name, ")"))[, 2:3]
             print("#########################")
             print(table_name)
             print("#########################")
             print(df_table_info_summary)
         }
-        DBI::dbDisconnect(conn=db)
+        DBI::dbDisconnect(conn=database)
     }
     return(out)
 }
 
-# db = DBI::dbConnect(drv=RSQLite::SQLite(), dbname="res/STR_NUE_WUE_Hamilton_2023_2024.sqlite")
-# db = DBI::dbConnect(drv=RSQLite::SQLite(), dbname="res/LUCERNE_CTL_Hamilton_2023_2024.sqlite")
-# DBI::dbGetQuery(conn=db, statement="PRAGMA TABLE_LIST")
-# DBI::dbGetQuery(conn=db, statement="PRAGMA TABLE_INFO(phenotypes)")
-# DBI::dbGetQuery(conn=db, statement="SELECT * FROM entries LIMIT 10")
-# DBI::dbGetQuery(conn=db, statement="SELECT * FROM entries WHERE POPULATION IN ('DB-MS-31-22-007') LIMIT 10")
-# DBI::dbGetQuery(conn=db, statement="SELECT * FROM genotypes WHERE ENTRY_UID IN (1615) LIMIT 10")
-# DBI::dbGetQuery(conn=db, statement="SELECT * FROM genotypes LIMIT 10")
-# DBI::dbDisconnect(conn=db)
+# database = DBI::dbConnect(drv=RSQLite::SQLite(), dbname="res/STR_NUE_WUE_Hamilton_2023_2024.sqlite")
+# database = DBI::dbConnect(drv=RSQLite::SQLite(), dbname="res/LUCERNE_CTL_Hamilton_2023_2024.sqlite")
+# DBI::dbGetQuery(conn=database, statement="PRAGMA TABLE_LIST")
+# DBI::dbGetQuery(conn=database, statement="PRAGMA TABLE_INFO(phenotypes)")
+# DBI::dbGetQuery(conn=database, statement="SELECT * FROM entries LIMIT 10")
+# DBI::dbGetQuery(conn=database, statement="SELECT * FROM entries WHERE POPULATION IN ('DB-MS-31-22-007') LIMIT 10")
+# DBI::dbGetQuery(conn=database, statement="SELECT * FROM genotypes WHERE ENTRY_UID IN (1615) LIMIT 10")
+# DBI::dbGetQuery(conn=database, statement="SELECT * FROM genotypes LIMIT 10")
+# DBI::dbDisconnect(conn=database)
 

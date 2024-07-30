@@ -1,4 +1,4 @@
-# db
+# database
 
 A simple SQLite database in R for genomic prediction.
 

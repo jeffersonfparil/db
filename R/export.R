@@ -3,7 +3,7 @@
 ##################################
 
 #' @export
-fn_check_export_inputs = function(db, table_name, list_filters=NULL, vec_columns_to_show="*", unique_column_name=NULL) {
+fn_check_export_inputs = function(database, table_name, list_filters=NULL, vec_columns_to_show="*", unique_column_name=NULL) {
     ################################################################
     ### TEST
     # list_fnames_tables = fn_simulate_tables(n_dates=3, n_sites=3, n_treatments=3, save_data_tables=TRUE)$list_fnames_tables
@@ -13,7 +13,7 @@ fn_check_export_inputs = function(db, table_name, list_filters=NULL, vec_columns
     #     df_environments=utils::read.delim(list_fnames_tables$fname_environments, header=TRUE),
     #     df_genotypes=utils::read.delim(list_fnames_tables$fname_genotypes, header=TRUE, check.names=FALSE))
     # fn_initialise_db(fname_db=fname_db, list_df_data_tables=list_df_data_tables, verbose=TRUE)
-    # db = DBI::dbConnect(drv=RSQLite::SQLite(), dbname=fname_db)
+    # database = DBI::dbConnect(drv=RSQLite::SQLite(), dbname=fname_db)
     # table_name = "phenotypes"
     # list_filters=list(
     #             REPLICATION="rep_1",
@@ -23,7 +23,7 @@ fn_check_export_inputs = function(db, table_name, list_filters=NULL, vec_columns
     ################################################################
     error = NULL
     ### Is the database connection valid?
-    if (!methods::is(db, "SQLiteConnection")) {
+    if (!methods::is(database, "SQLiteConnection")) {
         error = methods::new("dbError",
             code=000,
             message=paste0("Error in FUNCTION_NAME(...): broken SQLite connection. Please reconnect via DBI::dbConnect(...)."))
@@ -31,7 +31,7 @@ fn_check_export_inputs = function(db, table_name, list_filters=NULL, vec_columns
     }
     ### Is the database not empty?
     bool_at_least_one_expected_table_present = FALSE
-    vec_existing_table_names = DBI::dbGetQuery(conn=db, statement="PRAGMA TABLE_LIST")$name
+    vec_existing_table_names = DBI::dbGetQuery(conn=database, statement="PRAGMA TABLE_LIST")$name
     for (tname in vec_existing_table_names) {
         if (sum(GLOBAL_df_valid_tables()$NAME == tname) > 0) {
             bool_at_least_one_expected_table_present = TRUE
@@ -63,7 +63,7 @@ fn_check_export_inputs = function(db, table_name, list_filters=NULL, vec_columns
     }
     ### Does the database have the requested table name?
     if (
-        methods::is(db, "SQLiteConnection") &&
+        methods::is(database, "SQLiteConnection") &&
         bool_at_least_one_expected_table_present &&
         (sum(GLOBAL_df_valid_tables()$NAME == table_name) == 1) &&
         (sum(vec_existing_table_names == table_name) == 0)
@@ -79,7 +79,7 @@ fn_check_export_inputs = function(db, table_name, list_filters=NULL, vec_columns
     }
     ### Doest the list of filters exist as column in the table?
     if (
-        methods::is(db, "SQLiteConnection") &&
+        methods::is(database, "SQLiteConnection") &&
         bool_at_least_one_expected_table_present &&
         (sum(GLOBAL_df_valid_tables()$NAME == table_name) == 1) &&
         (sum(vec_existing_table_names == table_name) == 1) &&
@@ -92,7 +92,7 @@ fn_check_export_inputs = function(db, table_name, list_filters=NULL, vec_columns
         if (!is.null(unique_column_name)) {
             vec_requested_column_names = c(vec_requested_column_names, unique_column_name)
         }
-        vec_existing_column_names = DBI::dbGetQuery(conn=db, statement=paste0("PRAGMA TABLE_INFO(", table_name, ")"))$name
+        vec_existing_column_names = DBI::dbGetQuery(conn=database, statement=paste0("PRAGMA TABLE_INFO(", table_name, ")"))$name
         vec_missing_column_names = c()
         for (column_name in vec_requested_column_names) {
             # column_name = vec_requested_column_names[1]
@@ -120,7 +120,7 @@ fn_check_export_inputs = function(db, table_name, list_filters=NULL, vec_columns
 ### different or the same ranges which is equivalent to using a vector of value or range of values to filter
 ### Strings are always a vector of strings
 #' @export
-fn_query_and_left_join_tables = function(db, list_tables_and_filters, unique_column_name=NULL, verbose=TRUE) {
+fn_query_and_left_join_tables = function(database, list_tables_and_filters, unique_column_name=NULL, verbose=TRUE) {
     ################################################################
     ### TEST
     # list_fnames_tables = fn_simulate_tables(n_dates=3, n_sites=3, n_treatments=3, save_data_tables=TRUE)$list_fnames_tables
@@ -130,7 +130,7 @@ fn_query_and_left_join_tables = function(db, list_tables_and_filters, unique_col
     #     df_environments=utils::read.delim(list_fnames_tables$fname_environments, header=TRUE),
     #     df_genotypes=utils::read.delim(list_fnames_tables$fname_genotypes, header=TRUE, check.names=FALSE))
     # fn_initialise_db(fname_db=fname_db, list_df_data_tables=list_df_data_tables, verbose=TRUE)
-    # db = DBI::dbConnect(drv=RSQLite::SQLite(), dbname=fname_db)
+    # database = DBI::dbConnect(drv=RSQLite::SQLite(), dbname=fname_db)
     # list_tables_and_filters = list(
     #     entries=list(
     #         key_names=c("ENTRY_UID"), 
@@ -179,14 +179,14 @@ fn_query_and_left_join_tables = function(db, list_tables_and_filters, unique_col
     vec_select = c()
     vec_on = c()
     vec_where = c()
-    error = fn_check_export_inputs(db=db, table_name=vec_table_names[1], list_filters=list_tables_and_filters[[1]]$list_filters, vec_columns_to_show=list_tables_and_filters[[1]]$column_names, unique_column_name=unique_column_name)
+    error = fn_check_export_inputs(database=database, table_name=vec_table_names[1], list_filters=list_tables_and_filters[[1]]$list_filters, vec_columns_to_show=list_tables_and_filters[[1]]$column_names, unique_column_name=unique_column_name)
     if (methods::is(error, "dbError")) {
         error@message = gsub("FUNCTION_NAME", "fn_query_and_left_join_tables", error@message)
         return(error)
     }
     for (i in vec_range_i) {
         # i = 1
-        error = fn_check_export_inputs(db=db, table_name=vec_table_names[i+1], list_filters=list_tables_and_filters[[i+1]]$list_filters, vec_columns_to_show=list_tables_and_filters[[i+1]]$column_names, unique_column_name=unique_column_name)
+        error = fn_check_export_inputs(database=database, table_name=vec_table_names[i+1], list_filters=list_tables_and_filters[[i+1]]$list_filters, vec_columns_to_show=list_tables_and_filters[[i+1]]$column_names, unique_column_name=unique_column_name)
         if (methods::is(error, "dbError")) {
             error@message = gsub("FUNCTION_NAME", "fn_query_and_left_join_tables", error@message)
             return(error)
@@ -277,7 +277,7 @@ fn_query_and_left_join_tables = function(db, list_tables_and_filters, unique_col
     vec_query = c(vec_query, "WHERE", paste(vec_where, collapse="\nAND"))
     query = paste(vec_query, collapse="\n")
     ### Query
-    df_query = DBI::dbGetQuery(conn=db, statement=query)
+    df_query = DBI::dbGetQuery(conn=database, statement=query)
     ### Log messages
     if (verbose) {
         cat(query, "\n")
@@ -304,7 +304,7 @@ fn_query_and_left_join_tables = function(db, list_tables_and_filters, unique_col
 }
 
 #' @export
-fn_assess_df_subsets = function(db, table_name, list_filters=NULL, vec_columns_levels_to_count=NULL, verbose=TRUE) {
+fn_assess_df_subsets = function(database, table_name, list_filters=NULL, vec_columns_levels_to_count=NULL, verbose=TRUE) {
     ################################################################
     ### TEST
     # list_fnames_tables = fn_simulate_tables(n_dates=3, n_sites=3, n_treatments=3, save_data_tables=TRUE)$list_fnames_tables
@@ -314,7 +314,7 @@ fn_assess_df_subsets = function(db, table_name, list_filters=NULL, vec_columns_l
     #     df_environments=utils::read.delim(list_fnames_tables$fname_environments, header=TRUE),
     #     df_genotypes=utils::read.delim(list_fnames_tables$fname_genotypes, header=TRUE, check.names=FALSE))
     # fn_initialise_db(fname_db=fname_db, list_df_data_tables=list_df_data_tables, verbose=TRUE)
-    # db = DBI::dbConnect(drv=RSQLite::SQLite(), dbname=fname_db)
+    # database = DBI::dbConnect(drv=RSQLite::SQLite(), dbname=fname_db)
     # table_name = "phenotypes"
     # list_filters=list(
     #             REPLICATION="*",
@@ -327,7 +327,7 @@ fn_assess_df_subsets = function(db, table_name, list_filters=NULL, vec_columns_l
     ### Check for input error errors
     vec_columns_to_show = "*"
     unique_column_name = NULL
-    error = fn_check_export_inputs(db=db, table_name=table_name, list_filters=list_filters, vec_columns_to_show=vec_columns_to_show, unique_column_name=unique_column_name)
+    error = fn_check_export_inputs(database=database, table_name=table_name, list_filters=list_filters, vec_columns_to_show=vec_columns_to_show, unique_column_name=unique_column_name)
     if (methods::is(error, "dbError")) {
         error@message = gsub("FUNCTION_NAME", "fn_assess_df_subsets", error@message)
         return(error)
@@ -336,7 +336,7 @@ fn_assess_df_subsets = function(db, table_name, list_filters=NULL, vec_columns_l
     list_tables_and_filters = list()
     eval(parse(text=paste0("list_tables_and_filters$`", table_name, "`=list(key_names=c('*'), column_names=vec_columns_to_show, list_filters=list_filters)")))
     df = fn_query_and_left_join_tables(
-        db=db, 
+        database=database, 
         list_tables_and_filters=list_tables_and_filters,
         unique_column_name=unique_column_name,
         verbose=verbose)
@@ -410,7 +410,7 @@ fn_assess_df_subsets = function(db, table_name, list_filters=NULL, vec_columns_l
 }
 
 #' @export
-fn_deserialise_genotype_data = function(db, df_genotypes, verbose=TRUE) {
+fn_deserialise_genotype_data = function(database, df_genotypes, verbose=TRUE) {
     ################################################################
     ### TEST
     # list_fnames_tables = fn_simulate_tables(n_dates=3, n_sites=3, n_treatments=3, save_data_tables=TRUE)$list_fnames_tables
@@ -420,13 +420,13 @@ fn_deserialise_genotype_data = function(db, df_genotypes, verbose=TRUE) {
     #     df_environments=utils::read.delim(list_fnames_tables$fname_environments, header=TRUE),
     #     df_genotypes=utils::read.delim(list_fnames_tables$fname_genotypes, header=TRUE, check.names=FALSE))
     # fn_initialise_db(fname_db=fname_db, list_df_data_tables=list_df_data_tables, verbose=TRUE)
-    # db = DBI::dbConnect(drv=RSQLite::SQLite(), dbname=fname_db)
-    # df_genotypes = DBI::dbGetQuery(conn=db, statement="SELECT * FROM genotypes")
+    # database = DBI::dbConnect(drv=RSQLite::SQLite(), dbname=fname_db)
+    # df_genotypes = DBI::dbGetQuery(conn=database, statement="SELECT * FROM genotypes")
     # verbose = TRUE
     ################################################################
     error = NULL
     for (table_name in c("entries", "loci")) {
-        error_tmp = fn_check_export_inputs(db, table_name="entries", list_filters=NULL, vec_columns_to_show="*", unique_column_name=NULL)
+        error_tmp = fn_check_export_inputs(database, table_name="entries", list_filters=NULL, vec_columns_to_show="*", unique_column_name=NULL)
         if (!is.null(error_tmp)) {
             error_tmp@message = gsub("FUNCTION_NAME", "fn_deserialise_genotype_data", error_tmp@message)
         }
@@ -437,8 +437,8 @@ fn_deserialise_genotype_data = function(db, df_genotypes, verbose=TRUE) {
     if (!is.null(error)) {
         return(error)
     }
-    df_entries = DBI::dbGetQuery(conn=db, statement="SELECT * FROM entries")
-    df_loci = DBI::dbGetQuery(conn=db, statement="SELECT * FROM loci")
+    df_entries = DBI::dbGetQuery(conn=database, statement="SELECT * FROM entries")
+    df_loci = DBI::dbGetQuery(conn=database, statement="SELECT * FROM loci")
     vec_q = unserialize(as.raw(unlist(df_genotypes$BLOB[1])))
     n = nrow(df_genotypes)
     p = length(vec_q)

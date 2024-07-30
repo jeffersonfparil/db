@@ -4,12 +4,12 @@
 \alias{fn_check_import_inputs}
 \title{Check the validity of importation function inputs}
 \usage{
-fn_check_import_inputs(df, db, table_name, check_UIDs = FALSE)
+fn_check_import_inputs(df, database, table_name, check_UIDs = FALSE)
 }
 \arguments{
 \item{df}{number of entries or samples or genotypes (Default=100)}
 
-\item{db}{number of measurement dates (Default=10)}
+\item{database}{number of measurement dates (Default=10)}
 
 \item{table_name}{number of measurement sites (Default=10)}
 
@@ -34,7 +34,7 @@ list_fnames_tables = fn_simulate_tables(
      n_loci=10e3,
      save_data_tables=TRUE)$list_fnames_tables
 df = utils::read.delim(list_fnames_tables$fname_phenotypes, header=TRUE)
-db = DBI::dbConnect(drv=RSQLite::SQLite(), dbname="test.sqlite")
-null_error = fn_check_import_inputs(df=df, db=db, table_name="phenotypes", check_UIDs=FALSE)
-non_null_error = fn_check_import_inputs(df=df[, -1:-5], db=db, table_name="phenotypes", check_UIDs=FALSE)
+database = DBI::dbConnect(drv=RSQLite::SQLite(), dbname="test.sqlite")
+null_error = fn_check_import_inputs(df=df, database=database, table_name="phenotypes", check_UIDs=FALSE)
+non_null_error = fn_check_import_inputs(df=df[, -1:-5], database=database, table_name="phenotypes", check_UIDs=FALSE)
 }
