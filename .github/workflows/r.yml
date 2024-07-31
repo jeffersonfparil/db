@@ -1,0 +1,26 @@
+name: 📚
+
+on:
+  push:
+    branches: "main"
+  pull_request:
+    branches: "main"
+jobs:
+  build:
+    runs-on: "ubuntu-latest"
+    steps:
+      - uses: actions/checkout@v3
+      - uses: r-lib/actions/setup-r@v2
+        with:
+            r-version: "4.3.1"
+      - name: Install R::devtools dependencies on Ubuntu
+        run: |
+          sudo apt install -y libcurl4-openssl-dev libharfbuzz-dev libfribidi-dev
+      - name: Install dependencies on R
+        run: |
+          install.packages(c("devtools", "testthat", "DBI", "RSQLite", "rlang", "readxl", "writexl", "shiny", "txtplot")
+        shell: Rscript {0}
+      - name: Test
+        run: |
+          devtools::check()
+        shell: Rscript {0}
