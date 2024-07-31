@@ -70,3 +70,14 @@ fn_create_database_from_xlsx = function(fname_xlsx, fname_genotype_tsv=NULL, ver
 # DBI::dbGetQuery(conn=database, statement="SELECT * FROM genotypes LIMIT 10")
 # DBI::dbDisconnect(conn=database)
 
+fn_update_database_from_xlsx = function() {
+    NULL
+}
+
+fn_create_database_from_tsv = function() {
+    NULL
+}
+
+fn_update_database_from_tsv = function() {
+    NULL
+}

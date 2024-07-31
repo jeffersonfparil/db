@@ -118,15 +118,14 @@ test_that("fn_convert_allele_frequency_table_into_blobs_and_dfs", {
     df = utils::read.delim(list_fnames_tables$fname_genotypes, header=TRUE)
     database = DBI::dbConnect(drv=RSQLite::SQLite(), dbname="test.sqlite")
     list_df_genotypes_df_loci_df_entries = fn_convert_allele_frequency_table_into_blobs_and_dfs(df=df, database=database, table_name="genotypes", verbose=TRUE)
-    
-    
     expect_equal(length(list_df_genotypes_df_loci_df_entries), 3)
-
-
-
+    for (i in sample(4:ncol(df), size=10)) {
+        expect_equal(length(list_df_genotypes_df_loci_df_entries$df_genotypes$BLOB[[i-3]]), length(serialize(object=df[, i], connection=NULL)))
+    }
+    expect_equal(nrow(list_df_genotypes_df_loci_df_entries$df_loci), nrow(df))
+    expect_equal(nrow(list_df_genotypes_df_loci_df_entries$df_entries), ncol(df)-3)
     DBI::dbDisconnect(database)
     unlink("test.sqlite")
-
 })
 
 test_that("", {

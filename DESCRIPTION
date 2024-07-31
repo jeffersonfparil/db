@@ -19,7 +19,6 @@ Imports:
     rlang,
     readxl,
     writexl,
-    shiny,
     txtplot
 Depends: 
     R (>= 2.10)

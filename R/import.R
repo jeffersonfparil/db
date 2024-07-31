@@ -616,8 +616,8 @@ fn_add_hash_UID_and_remove_duplicate_rows = function(df, database, table_name, v
 #'      save_data_tables=TRUE)$list_fnames_tables
 #' df = utils::read.delim(list_fnames_tables$fname_genotypes, header=TRUE)
 #' database = DBI::dbConnect(drv=RSQLite::SQLite(), dbname="test.sqlite")
-#' list_df_genotypes_df_loci_df_entries = fn_convert_allele_frequency_table_into_blobs_and_dfs(df=df, database=database, 
-#'  table_name="genotypes", verbose=TRUE)
+#' list_df_genotypes_df_loci_df_entries = fn_convert_allele_frequency_table_into_blobs_and_dfs(df=df, 
+#'  database=database, table_name="genotypes", verbose=TRUE)
 #' DBI::dbDisconnect(database)
 #' unlink("test.sqlite")
 #' @export
@@ -691,6 +691,37 @@ fn_convert_allele_frequency_table_into_blobs_and_dfs = function(df, database, ta
     ))
 }
 
+#' Prepare a data table and extract based tables from it
+#' @param df data frame representing a data table, e.g. phenotypes, environments or genotypes table
+#' @param database an open SQLite database connection
+#' @param table_name name of the base or data table represented by df
+#' @param verbose Show messages? (Default=TRUE)
+#' @returns
+#'  - Ok:
+#'      $df_possibly_modified: data table with column names converted to uppercase, hash and UID 
+#'          columns added, and duplicate rows and column ommitted
+#'      $df_entries: "entries" base table or data frame
+#'      $df_dates: "dates" base table or data frame
+#'      $df_sites: "sites" base table or data frame
+#'      $df_treatments: "treatments" base table or data frame
+#'      $df_traits: "traits" base table or data frame
+#'      $df_abiotics: "abiotics" base table or data frame
+#'      $df_loci: "loci" base table or data frame
+#'  - Err: dbError
+#' @examples
+#' list_fnames_tables = fn_simulate_tables(
+#'      n_entries=50,
+#'      n_dates=3,
+#'      n_sites=3,
+#'      n_treatments=3,
+#'      n_loci=10e3,
+#'      save_data_tables=TRUE)$list_fnames_tables
+#' df = utils::read.delim(list_fnames_tables$fname_phenotypes, header=TRUE)
+#' database = DBI::dbConnect(drv=RSQLite::SQLite(), dbname="test.sqlite")
+#' list_df_data_and_base_tables = fn_prepare_data_table_and_extract_base_tables(df=df, 
+#'  database=database, table_name="phenotypes", verbose=TRUE)
+#' DBI::dbDisconnect(database)
+#' unlink("test.sqlite")
 #' @export
 fn_prepare_data_table_and_extract_base_tables = function(df, database, table_name, verbose=TRUE) {
     ################################################################
@@ -860,7 +891,6 @@ fn_prepare_data_table_and_extract_base_tables = function(df, database, table_nam
     ))
 }
 
-#' @export
 fn_set_classification_of_rows = function(df, database, table_name, verbose=verbose) {
     ################################################################
     ### TEST
@@ -930,7 +960,6 @@ fn_set_classification_of_rows = function(df, database, table_name, verbose=verbo
     return(list_set_classification_of_rows)
 }
 
-#' @export
 fn_set_classification_of_columns = function(df, database, table_name, verbose=TRUE) {
     ################################################################
     ### TEST
@@ -979,7 +1008,6 @@ fn_set_classification_of_columns = function(df, database, table_name, verbose=TR
     return(list_set_classification_of_columns)
 }
 
-#' @export
 fn_add_new_columns = function(df, database, table_name, verbose=TRUE) {
     ################################################################
     ### TEST
@@ -1029,7 +1057,6 @@ fn_add_new_columns = function(df, database, table_name, verbose=TRUE) {
 ### Note that it is easier to:
 ###     (1) replace the entire table, i.e. when the source table is a complete superset of the destination table, and
 ###     (2) add new rows
-#' @export
 fn_append = function(df, database, table_name, verbose=TRUE) {
     ################################################################
     ### TEST
@@ -1143,7 +1170,6 @@ fn_append = function(df, database, table_name, verbose=TRUE) {
     return(database)
 }
 
-#' @export
 fn_initialise_db = function(fname_db, list_df_data_tables, verbose=TRUE) {
     ################################################################
     ### TEST
@@ -1227,7 +1253,6 @@ fn_initialise_db = function(fname_db, list_df_data_tables, verbose=TRUE) {
     return(0)
 }
 
-#' @export
 fn_update_database = function(fname_db, df, table_name, verbose=TRUE) {
     ################################################################
     ### TEST
