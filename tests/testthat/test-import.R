@@ -106,7 +106,7 @@ test_that("fn_add_hash_UID_and_remove_duplicate_rows", {
     unlink("test.sqlite")
 })
 
-test_that("", {
+test_that("fn_convert_allele_frequency_table_into_blobs_and_dfs", {
     set.seed(123)
     list_fnames_tables = fn_simulate_tables(
          n_entries=50,
