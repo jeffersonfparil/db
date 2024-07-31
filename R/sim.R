@@ -90,8 +90,11 @@ fn_simulate_tables = function(
             return(error)
         }
     }
-    ### We will sample all strings from the list of words in GNU/Linux
-    vec_words = utils::read.table("/usr/share/dict/words")$V1
+    ### We will sample all strings from the list of words in GNU/Linux saved as and *.rda in ./data/ which ships with this R library
+    # vec_words = utils::read.table("/usr/share/dict/words")$V1
+    env = new.env()
+    name_data = utils::data(vec_words, envir=env)[1]
+    vec_words = env[[name_data]]
     ### Define the base tables, i.e. entries, dates, sites/location, treatments, traits, abiotic/environmental variables, and loci identities and descriptions
     # %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     # %%% Individuals, pools, or any level of single to multiple plant representation %%%
@@ -404,17 +407,17 @@ fn_simulate_tables = function(
         ### Replace POSIX_DATE_TIME with YEAR, MONTH and DAY columns
         df_out_phenotypes = data.frame(
             df_phenotypes[, 2, drop=FALSE], 
-            YEAR=as.numeric(format(as.Date(as.POSIXlt(df_phenotypes$POSIX_DATE_TIME)), format="%Y")),
-            MONTH=as.numeric(format(as.Date(as.POSIXlt(df_phenotypes$POSIX_DATE_TIME)), format="%m")),
-            DAY=as.numeric(format(as.Date(as.POSIXlt(df_phenotypes$POSIX_DATE_TIME)), format="%d")),
-            HOUR=as.numeric(format(as.Date(as.POSIXlt(df_phenotypes$POSIX_DATE_TIME)), format="%H")),
+            YEAR=as.numeric(format(as.POSIXlt(df_phenotypes$POSIX_DATE_TIME), format="%Y")),
+            MONTH=as.numeric(format(as.POSIXlt(df_phenotypes$POSIX_DATE_TIME), format="%m")),
+            DAY=as.numeric(format(as.POSIXlt(df_phenotypes$POSIX_DATE_TIME), format="%d")),
+            HOUR=as.numeric(format(as.POSIXlt(df_phenotypes$POSIX_DATE_TIME), format="%H")),
             df_phenotypes[, -1:-2, drop=FALSE])
         df_out_environments = data.frame(
             df_environments[, 2, drop=FALSE], 
-            YEAR=as.numeric(format(as.Date(as.POSIXlt(df_environments$POSIX_DATE_TIME)), format="%Y")),
-            MONTH=as.numeric(format(as.Date(as.POSIXlt(df_environments$POSIX_DATE_TIME)), format="%m")),
-            DAY=as.numeric(format(as.Date(as.POSIXlt(df_environments$POSIX_DATE_TIME)), format="%d")),
-            HOUR=as.numeric(format(as.Date(as.POSIXlt(df_environments$POSIX_DATE_TIME)), format="%H")),
+            YEAR=as.numeric(format(as.POSIXlt(df_environments$POSIX_DATE_TIME), format="%Y")),
+            MONTH=as.numeric(format(as.POSIXlt(df_environments$POSIX_DATE_TIME), format="%m")),
+            DAY=as.numeric(format(as.POSIXlt(df_environments$POSIX_DATE_TIME), format="%d")),
+            HOUR=as.numeric(format(as.POSIXlt(df_environments$POSIX_DATE_TIME), format="%H")),
             df_environments[, -1:-2, drop=FALSE])
         ### Save phenotypes and environments tables as tab-delimited files
         utils::write.table(x=df_out_phenotypes, file=list_fnames_tables$fname_phenotypes, sep="\t", row.names=FALSE, col.names=TRUE, quote=FALSE)

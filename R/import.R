@@ -3,10 +3,11 @@
 ##################################
 
 #' Check the validity of importation function inputs
-#' @param df number of entries or samples or genotypes (Default=100)
-#' @param database number of measurement dates (Default=10)
-#' @param table_name number of measurement sites (Default=10)
-#' @param check_UIDs number of treatments (Default=10)
+#' @param df data frame representing a base (entries, dates, sites, treatments, traits, abiotics, 
+#'  and loci) or data (phenotypes, environments and genotypes) table
+#' @param database an open SQLite database connection
+#' @param table_name name of the base or data table represented by df
+#' @param check_UIDs Does the table-specific UID column exist in df? (Default=FALSE)
 #' @returns
 #'  - Ok:
 #'      NULL
@@ -21,8 +22,12 @@
 #'      save_data_tables=TRUE)$list_fnames_tables
 #' df = utils::read.delim(list_fnames_tables$fname_phenotypes, header=TRUE)
 #' database = DBI::dbConnect(drv=RSQLite::SQLite(), dbname="test.sqlite")
-#' null_error = fn_check_import_inputs(df=df, database=database, table_name="phenotypes", check_UIDs=FALSE)
-#' non_null_error = fn_check_import_inputs(df=df[, -1:-5], database=database, table_name="phenotypes", check_UIDs=FALSE)
+#' null_error = fn_check_import_inputs(df=df, database=database, table_name="phenotypes", 
+#'  check_UIDs=FALSE)
+#' non_null_error = fn_check_import_inputs(df=df[, -1:-5], database=database, 
+#'  table_name="phenotypes", check_UIDs=FALSE)
+#' DBI::dbDisconnect(database)
+#' unlink("test.sqlite")
 #' @export
 fn_check_import_inputs = function(df, database, table_name, check_UIDs=FALSE) {
     ################################################################
@@ -132,12 +137,13 @@ fn_check_import_inputs = function(df, database, table_name, check_UIDs=FALSE) {
     return(error)
 }
 
-#' Remove quotes and newline characters ("\n" in Linux and "\r\n" in Windows)
-#' @param df data frame representing any of the base and data tables
-#' @param verbose show messages? (Default=TRUE)
+#' Remove quotes and newline characters ("\\n" in Linux and "\\r\\n" in Windows)
+#' @param df data frame representing a base (entries, dates, sites, treatments, traits, abiotics, 
+#'  and loci) or data (phenotypes, environments and genotypes) table
+#' @param verbose Show messages? (Default=TRUE)
 #' @returns
 #'  - Ok:
-#'      df: data frame without quotes and newline characters
+#'      df: data frame
 #'  - Err: dbError
 #' @examples
 #' list_fnames_tables = fn_simulate_tables(
@@ -198,6 +204,32 @@ fn_remove_quotes_and_newline_characters_in_data = function(df, verbose=TRUE) {
     return(df)
 }
 
+#' Add POSIX time column into a data table
+#' @param df data frame representing a base (entries, dates, sites, treatments, traits, abiotics, 
+#'  and loci) or data (phenotypes, environments and genotypes) table
+#' @param database an open SQLite database connection
+#' @param table_name name of the base or data table represented by df
+#' @param bool_add_FVI_year_season Add the corresponding forage value index (FVI) seasons and year? 
+#'  (Default=TRUE)
+#' @param verbose Show messages? (Default=TRUE)
+#' @returns
+#'  - Ok:
+#'      df: data frame
+#'  - Err: dbError
+#' @examples
+#' list_fnames_tables = fn_simulate_tables(
+#'      n_entries=50,
+#'      n_dates=3,
+#'      n_sites=3,
+#'      n_treatments=3,
+#'      n_loci=10e3,
+#'      save_data_tables=TRUE)$list_fnames_tables
+#' df = utils::read.delim(list_fnames_tables$fname_phenotypes, header=TRUE)
+#' database = DBI::dbConnect(drv=RSQLite::SQLite(), dbname="test.sqlite")
+#' df = fn_add_POSIX_time(df=df, database=database, table_name="phenotypes", 
+#'  bool_add_FVI_year_season=TRUE, verbose=TRUE)
+#' DBI::dbDisconnect(database)
+#' unlink("test.sqlite")
 #' @export
 fn_add_POSIX_time = function(df, database, table_name, bool_add_FVI_year_season=TRUE, verbose=TRUE) {
     ################################################################
@@ -234,7 +266,33 @@ fn_add_POSIX_time = function(df, database, table_name, bool_add_FVI_year_season=
         eval(parse(text=paste0("df$`", toupper(datetime_name), "` = as.numeric(df$`", toupper(datetime_name), "`)")))
         vec_idx_year_month_day_hour = c(vec_idx_year_month_day_hour, which(toupper(colnames(df)) == datetime_name))
     }
-    df$POSIX_DATE_TIME = unlist(apply(df, MARGIN=1, FUN=function(x){as.numeric(as.POSIXlt(paste(as.character(x[vec_idx_year_month_day_hour]), collapse="-")))}))
+    if (length(vec_idx_year_month_day_hour) == 4) {
+        str_hour = as.character(df[1, vec_idx_year_month_day_hour[4]])
+        vec_colon_count = sum(grepl(":", unlist(strsplit(str_hour, split=""))))
+        if (vec_colon_count < 2) {
+            str_hour_suffix = ":00:00"
+        } else if (vec_colon_count == 2) {
+            str_hour_suffix = ":00"
+        } else {
+            str_hour_suffix = ""
+        }
+        df$POSIX_DATE_TIME = unlist(apply(df, MARGIN=1, FUN=function(x){as.numeric(as.POSIXlt(paste0(paste(as.character(x[vec_idx_year_month_day_hour[1:3]]), collapse="-"), " ", as.character(x[vec_idx_year_month_day_hour[4]]), str_hour_suffix)))}))
+    } else {
+        df$POSIX_DATE_TIME = unlist(apply(df, MARGIN=1, FUN=function(x){as.numeric(as.POSIXlt(paste(as.character(x[vec_idx_year_month_day_hour]), collapse="-")))}))
+    }
+    vec_POSIX_DATE_TIME = as.POSIXlt(df$POSIX_DATE_TIME)
+    if (
+        sum(as.numeric(format(vec_POSIX_DATE_TIME, format="%Y")) == df[, vec_idx_year_month_day_hour[1]]) != nrow(df) |
+        sum(as.numeric(format(vec_POSIX_DATE_TIME, format="%m")) == df[, vec_idx_year_month_day_hour[2]]) != nrow(df) |
+        sum(as.numeric(format(vec_POSIX_DATE_TIME, format="%d")) == df[, vec_idx_year_month_day_hour[3]]) != nrow(df) |
+        (length(vec_idx_year_month_day_hour) == 4) && sum(as.numeric(format(vec_POSIX_DATE_TIME, format="%H")) == df[, vec_idx_year_month_day_hour[4]]) != nrow(df)
+    ) {
+        error = methods::new("dbError",
+            code=000,
+            message=paste0("Error in fn_add_POSIX_time(...): ",
+                "Error in parsing the date and time. Please check the format of the YEAR, MONTH, DAY and HOUR columns."))
+        return(error)
+    }
     if (bool_add_FVI_year_season) {
         if (verbose) {
             print("Adding FVI year-season column.")
@@ -258,6 +316,30 @@ fn_add_POSIX_time = function(df, database, table_name, bool_add_FVI_year_season=
     return(df)
 }
 
+#' Set all column names into uppercase and remove duplicate column names
+#' @param df data frame representing a base (entries, dates, sites, treatments, traits, abiotics, 
+#'  and loci) or data (phenotypes, environments and genotypes) table
+#' @param database an open SQLite database connection
+#' @param table_name name of the base or data table represented by df
+#' @param verbose Show messages? (Default=TRUE)
+#' @returns
+#'  - Ok:
+#'      df: data frame without quotes and newline characters
+#'  - Err: dbError
+#' @examples
+#' list_fnames_tables = fn_simulate_tables(
+#'      n_entries=50,
+#'      n_dates=3,
+#'      n_sites=3,
+#'      n_treatments=3,
+#'      n_loci=10e3,
+#'      save_data_tables=TRUE)$list_fnames_tables
+#' df = utils::read.delim(list_fnames_tables$fname_phenotypes, header=TRUE)
+#' database = DBI::dbConnect(drv=RSQLite::SQLite(), dbname="test.sqlite")
+#' df = fn_rename_columns_and_remove_duplicate_columns(df=df, database=database, 
+#'  table_name="phenotypes", verbose=TRUE)
+#' DBI::dbDisconnect(database)
+#' unlink("test.sqlite")
 #' @export
 fn_rename_columns_and_remove_duplicate_columns = function(df, database, table_name, verbose=TRUE) {
     ################################################################
@@ -340,8 +422,28 @@ fn_rename_columns_and_remove_duplicate_columns = function(df, database, table_na
     return(df)
 }
 
+#' Define a consistent prefix to hash and UID column names for each table type
+#' @param table_name name of the base (entries, dates, sites, treatments, traits, abiotics, 
+#'  and loci) or data (phenotypes, environments and genotypes) table
+#' @returns
+#'  - Ok:
+#'      prefix_of_HASH_and_UID_columns: character string
+#'  - Err: dbError
+#' @examples
+#' prefix_of_HASH_and_UID_columns = fn_define_hash_and_UID_prefix(table_name="phenotypes")
 #' @export
 fn_define_hash_and_UID_prefix = function(table_name) {
+    ################################################################
+    ### TEST
+    # table_name = "environments"
+    ################################################################
+    if (sum(grepl(table_name, GLOBAL_df_valid_tables()$NAME)) == 0) {
+        error = methods::new("dbError",
+            code=000,
+            message=paste0("Error in fn_define_hash_and_UID_prefix(...): ",
+                "The table named: ", table_name, " is not a valid base or data table."))
+        return(error)
+    }
     if (table_name == "loci") {
         prefix_of_HASH_and_UID_columns = "LOCUS"
     } else {
@@ -351,6 +453,30 @@ fn_define_hash_and_UID_prefix = function(table_name) {
     return(prefix_of_HASH_and_UID_columns)
 }
 
+#' Add hash and UID columns, then remove duplicate rows as defined by the required columns for each base and data table.
+#' @param df data frame representing a base (entries, dates, sites, treatments, traits, abiotics, 
+#'  and loci) or data (phenotypes, environments and genotypes) table
+#' @param database an open SQLite database connection
+#' @param table_name name of the base or data table represented by df
+#' @param verbose Show messages? (Default=TRUE)
+#' @returns
+#'  - Ok:
+#'      df: data frame without quotes and newline characters
+#'  - Err: dbError
+#' @examples
+#' list_fnames_tables = fn_simulate_tables(
+#'      n_entries=50,
+#'      n_dates=3,
+#'      n_sites=3,
+#'      n_treatments=3,
+#'      n_loci=10e3,
+#'      save_data_tables=TRUE)$list_fnames_tables
+#' df = utils::read.delim(list_fnames_tables$fname_phenotypes, header=TRUE)
+#' database = DBI::dbConnect(drv=RSQLite::SQLite(), dbname="test.sqlite")
+#' df = fn_add_hash_UID_and_remove_duplicate_rows(df=df, database=database, 
+#'  table_name="phenotypes", verbose=TRUE)
+#' DBI::dbDisconnect(database)
+#' unlink("test.sqlite")
 #' @export
 fn_add_hash_UID_and_remove_duplicate_rows = function(df, database, table_name, verbose=TRUE) {
     ################################################################
@@ -462,6 +588,38 @@ fn_add_hash_UID_and_remove_duplicate_rows = function(df, database, table_name, v
     return(df)
 }
 
+#' Extract entries, loci, and genotypes tables from an allele frequency table
+#' @param df allele frequency table in data frame format:
+#'  read from a tab-delimited file with a header line and the first 3 columns refer to the
+#'  chromosome (chr), position (pos), and allele (allele),
+#'  with subsequent columns referring to the allele frequencies of a sample, entry or pool.
+#'  Names of the samples, entries, or pools in the header line can be any unique string of characters.
+#' @param database an open SQLite database connection
+#' @param table_name name of the data table, i.e. the "genotypes" table (Default="genotypes")
+#' @param verbose Show messages? (Default=TRUE)
+#' @returns
+#'  - Ok:
+#'      $df_genotypes: 2-column genotypes table or data frame. The first column is the ENTRY_UID 
+#'          checked for redundancy if an existing "entries" table exist in the database. The second
+#'          column is the serialised allele frequencies per entry, i.e. a vector of raw bytes is 
+#'          stored per row of the data frame.
+#'      $df_loci: "loci" base table or data frame
+#'      $df_entries: "entries" base table or data frame
+#'  - Err: dbError
+#' @examples
+#' list_fnames_tables = fn_simulate_tables(
+#'      n_entries=50,
+#'      n_dates=3,
+#'      n_sites=3,
+#'      n_treatments=3,
+#'      n_loci=10e3,
+#'      save_data_tables=TRUE)$list_fnames_tables
+#' df = utils::read.delim(list_fnames_tables$fname_genotypes, header=TRUE)
+#' database = DBI::dbConnect(drv=RSQLite::SQLite(), dbname="test.sqlite")
+#' list_df_genotypes_df_loci_df_entries = fn_convert_allele_frequency_table_into_blobs_and_dfs(df=df, database=database, 
+#'  table_name="genotypes", verbose=TRUE)
+#' DBI::dbDisconnect(database)
+#' unlink("test.sqlite")
 #' @export
 fn_convert_allele_frequency_table_into_blobs_and_dfs = function(df, database, table_name="genotypes", verbose=TRUE) {
     ################################################################

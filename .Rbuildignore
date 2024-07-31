@@ -3,6 +3,6 @@
 inst/
 _libs/
 shell.nix
-.*sqlite
+test.sqlite
 .Rprofile
 conda.yml

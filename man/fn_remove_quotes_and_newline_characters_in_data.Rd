@@ -2,28 +2,25 @@
 % Please edit documentation in R/import.R
 \name{fn_remove_quotes_and_newline_characters_in_data}
 \alias{fn_remove_quotes_and_newline_characters_in_data}
-\title{Remove quotes and newline characters ("\n" in Linux and "\r\n" in Windows)}
+\title{Remove quotes and newline characters ("\\n" in Linux and "\\r\\n" in Windows)}
 \usage{
 fn_remove_quotes_and_newline_characters_in_data(df, verbose = TRUE)
 }
 \arguments{
-\item{df}{number of entries or samples or genotypes (Default=100)}
+\item{df}{data frame representing a base (entries, dates, sites, treatments, traits, abiotics,
+and loci) or data (phenotypes, environments and genotypes) table}
 
-\item{database}{number of measurement dates (Default=10)}
-
-\item{table_name}{number of measurement sites (Default=10)}
-
-\item{check_UIDs}{number of treatments (Default=10)}
+\item{verbose}{Show messages? (Default=TRUE)}
 }
 \value{
 \itemize{
 \item Ok:
-NULL
+df: data frame
 \item Err: dbError
 }
 }
 \description{
-Remove quotes and newline characters ("\n" in Linux and "\r\n" in Windows)
+Remove quotes and newline characters ("\\n" in Linux and "\\r\\n" in Windows)
 }
 \examples{
 list_fnames_tables = fn_simulate_tables(
@@ -34,7 +31,9 @@ list_fnames_tables = fn_simulate_tables(
      n_loci=10e3,
      save_data_tables=TRUE)$list_fnames_tables
 df = utils::read.delim(list_fnames_tables$fname_phenotypes, header=TRUE)
-database = DBI::dbConnect(drv=RSQLite::SQLite(), dbname="test.sqlite")
-null_error = fn_check_import_inputs(df=df, database=database, table_name="phenotypes", check_UIDs=FALSE)
-non_null_error = fn_check_import_inputs(df=df[, -1:-5], database=database, table_name="phenotypes", check_UIDs=FALSE)
+df[1,1] = paste0("'", df[1,1], "'")
+df[2,2] = paste0('"', df[2,2], '"')
+df[3,3] = paste0(df[3,3], "\n")
+df[4,4] = paste0(df[4,4], "\r\n")
+df = fn_remove_quotes_and_newline_characters_in_data(df=df, verbose=TRUE)
 }

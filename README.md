@@ -15,7 +15,7 @@ devtools::install_github("jeffersonfparil/db")
 
 ## Schema
 
-Each database will correspond to a single species with the following schema:
+Each database will correspond to a single species with the following schema. **The 7 base tables are shown on top while the 3 data tables are at the bottom**:
 
 ```mermaid
 erDiagram
@@ -24,7 +24,7 @@ erDiagram
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     entries {
         TEXT ENTRY_HASH
-        INTEGER ENTRY_UID
+        REAL ENTRY_UID
         TEXT ENTRY
         TEXT TYPE
         TEXT POPULATION
@@ -35,12 +35,12 @@ erDiagram
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     dates {
         TEXT DATE_HASH
-        INTEGER DATE_UID
-        INTEGER POSIX_DATE_TIME
-        INTEGER YEAR
-        INTEGER MONTH
-        INTEGER DAY
-        INTEGER HOUR
+        REAL DATE_UID
+        REAL POSIX_DATE_TIME
+        REAL YEAR
+        REAL MONTH
+        REAL DAY
+        REAL HOUR
         TEXT FVI_YEAR_SEASON
     }
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -48,7 +48,7 @@ erDiagram
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     sites {
         TEXT SITE_HASH
-        INTEGER SITE_UID
+        REAL SITE_UID
         TEXT SITE
         TEXT DESCRIPTION
     }
@@ -57,7 +57,7 @@ erDiagram
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     treatments {
         TEXT TREATMENT_HASH
-        INTEGER TREATMENT_UID
+        REAL TREATMENT_UID
         TEXT TREATMENT
         TEXT DESCRIPTION
     }
@@ -66,7 +66,7 @@ erDiagram
     %%%%%%%%%%%%%%%%%%%%%%%%%%%
     traits {
         TEXT TRAIT_HASH
-        INTEGER TRAIT_UID
+        REAL TRAIT_UID
         TEXT TRAIT
         TEXT DESCRIPTION
     }
@@ -75,7 +75,7 @@ erDiagram
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     abiotics {
         TEXT ABIOTIC_HASH
-        INTEGER ABIOTIC_UID
+        REAL ABIOTIC_UID
         TEXT ABIOTIC
         TEXT DESCRIPTION
     }
@@ -84,9 +84,9 @@ erDiagram
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     loci {
         TEXT LOCUS_HASH
-        INTEGER LOCUS_UID
+        REAL LOCUS_UID
         TEXT CHROMOSOME
-        INTEGER POSITION_PER_CHROMOSOME
+        REAL POSITION_PER_CHROMOSOME
         TEXT ALLELE
     }
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -94,7 +94,7 @@ erDiagram
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     phenotypes {
         TEXT PHENOTYPE_HASH
-        INTEGER PHENOTYPE_UID
+        REAL PHENOTYPE_UID
         TEXT ENTRY
         TEXT TREATMENT
         TEXT REPLICATION
@@ -102,7 +102,7 @@ erDiagram
         TEXT ROW_OR_BLOCK
         TEXT COLUMN
         TEXT SITE
-        INTEGER POSIX_DATE_TIME
+        REAL POSIX_DATE_TIME
         REAL _NUMERIC_AND_BINARY_TRAITS_
         TEXT _CATEGORICAL_TRAITS_
     }
@@ -111,23 +111,22 @@ erDiagram
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     environments {
         TEXT ENVIRONMENT_HASH
-        INTEGER ENVIRONMENT_UID
+        REAL ENVIRONMENT_UID
         TEXT TREATMENT
         TEXT REPLICATION
         TEXT SENSOR
         TEXT SITE
-        INTEGER POSIX_DATE_TIME
+        REAL POSIX_DATE_TIME
         REAL _NUMERIC_AND_BINARY_ABIOTICS_
         TEXT _CATEGORICAL_ABIOTICS_
     }
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     %%% Genotype data per entry across loci %%%
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    %%% Note that the ENTRY_HASH will be pulled from the entries table instead of calculated from each genotype matrix row for efficiency
+    %%% Note that allele frequencies across loci are save as a blob per entry sorted in the same way as the base table loci
     genotypes {
-        TEXT ENTRY_HASH
-        INTEGER ENTRY_UID
-        REAL _LOCUS_ID_ALLELE_FREQ_
+        REAL ENTRY_UID
+        BLOB _ALLELE_FREQUENCIES_ACROSS_ALL_LOCI_
     }
     %%%%%%%%%%%%%%%%%%%%%
     %%% Relationships %%%

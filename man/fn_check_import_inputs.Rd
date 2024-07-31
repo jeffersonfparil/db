@@ -7,13 +7,14 @@
 fn_check_import_inputs(df, database, table_name, check_UIDs = FALSE)
 }
 \arguments{
-\item{df}{number of entries or samples or genotypes (Default=100)}
+\item{df}{data frame representing a base (entries, dates, sites, treatments, traits, abiotics,
+and loci) or data (phenotypes, environments and genotypes) table}
 
-\item{database}{number of measurement dates (Default=10)}
+\item{database}{an open SQLite database connection}
 
-\item{table_name}{number of measurement sites (Default=10)}
+\item{table_name}{name of the base or data table represented by df}
 
-\item{check_UIDs}{number of treatments (Default=10)}
+\item{check_UIDs}{Does the table-specific UID column exist in df? (Default=FALSE)}
 }
 \value{
 \itemize{
@@ -35,6 +36,10 @@ list_fnames_tables = fn_simulate_tables(
      save_data_tables=TRUE)$list_fnames_tables
 df = utils::read.delim(list_fnames_tables$fname_phenotypes, header=TRUE)
 database = DBI::dbConnect(drv=RSQLite::SQLite(), dbname="test.sqlite")
-null_error = fn_check_import_inputs(df=df, database=database, table_name="phenotypes", check_UIDs=FALSE)
-non_null_error = fn_check_import_inputs(df=df[, -1:-5], database=database, table_name="phenotypes", check_UIDs=FALSE)
+null_error = fn_check_import_inputs(df=df, database=database, table_name="phenotypes", 
+ check_UIDs=FALSE)
+non_null_error = fn_check_import_inputs(df=df[, -1:-5], database=database, 
+ table_name="phenotypes", check_UIDs=FALSE)
+DBI::dbDisconnect(database)
+unlink("test.sqlite")
 }
