@@ -144,23 +144,20 @@ erDiagram
     loci ||--o{ genotypes : "defines the loci"
 ```
 
-### Base tables
+### Base and data tables
 
-1. entries
-2. dates
-3. sites
-4. treatments
-5. traits
-6. abiotics
-7. loci
+| Base       | Data         |
+| :--------- | :----------- |
+| entries    | phenotypes   |
+| dates      | environments |
+| sites      | genotypes    |
+| treatments | -            |
+| traits     | -            |
+| abiotics   | -            |
+| loci       | -            |
 
-### Data tables
 
-1. phenotypes
-2. environments
-3. genotypes
-
-### A brief apology to the schema above:
+### A brief apology for the schema
 
 1. Genotypes refer to individuals, population, families or pools as long as they relate to a single line of allele frequencies or genotype values in some genotype matrix.
 2. [POSIX time](https://en.wikipedia.org/wiki/Unix_time) is used to have a low memory-footprint date-time relator across tables with the dates table detailing the human-readable dates, times and FVI seasons.
