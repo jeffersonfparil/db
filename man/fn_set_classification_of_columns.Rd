@@ -46,6 +46,7 @@ list_fnames_tables = fn_simulate_tables(
      save_data_tables=TRUE)$list_fnames_tables
 df = utils::read.delim(list_fnames_tables$fname_phenotypes, header=TRUE)
 database = DBI::dbConnect(drv=RSQLite::SQLite(), dbname="test.sqlite")
+### Prepare the tables
 list_df_data_and_base_tables = fn_prepare_data_table_and_extract_base_tables(df=df, 
      database=database, table_name="phenotypes", verbose=TRUE)
 df = list_df_data_and_base_tables$df_possibly_modified
@@ -55,4 +56,6 @@ DBI::dbWriteTable(conn=database, name="phenotypes", value=df_first_half)
 ### Detect column intersections
 list_set_classification_of_columns = fn_set_classification_of_columns(df=df, database=database, 
      table_name="phenotypes", verbose=TRUE)
+DBI::dbDisconnect(database)
+unlink("test.sqlite")
 }

@@ -192,7 +192,7 @@ test_that("list_set_classification_of_rows", {
          n_loci=10e3,
          save_data_tables=TRUE)$list_fnames_tables
     df = utils::read.delim(list_fnames_tables$fname_phenotypes, header=TRUE)
-    ### if the table does not exist in the database yet
+    ### If the table does not exist in the database yet
     database = DBI::dbConnect(drv=RSQLite::SQLite(), dbname="test.sqlite")
     list_set_classification_of_rows = fn_set_classification_of_rows(df=df, database=database, table_name="phenotypes", verbose=TRUE)
     expect_equal(class(list_set_classification_of_rows)[1], "dbError")
@@ -254,14 +254,99 @@ test_that("list_set_classification_of_columns", {
     unlink("test.sqlite")
 })
 
-test_that("", {
+test_that("fn_add_new_columns", {
     set.seed(123)
-
+    list_fnames_tables = fn_simulate_tables(
+         n_entries=50,
+         n_dates=3,
+         n_sites=3,
+         n_treatments=3,
+         n_loci=10e3,
+         save_data_tables=TRUE)$list_fnames_tables
+    df = utils::read.delim(list_fnames_tables$fname_phenotypes, header=TRUE)
+    database = DBI::dbConnect(drv=RSQLite::SQLite(), dbname="test.sqlite")
+    ### Prepare the tables
+    list_df_data_and_base_tables = fn_prepare_data_table_and_extract_base_tables(df=df, 
+         database=database, table_name="phenotypes", verbose=TRUE)
+    df = list_df_data_and_base_tables$df_possibly_modified
+    df_first_half = droplevels(df[, 1:floor(ncol(df)/2)])
+    ### Import the first half of the data table into the database
+    DBI::dbWriteTable(conn=database, name="phenotypes", value=df_first_half)
+    expect_equal(colnames(df_first_half), DBI::dbGetQuery(conn=database, statement="PRAGMA TABLE_INFO(phenotypes)")$name)
+    ### Add new columns
+    database = fn_add_new_columns(df=df, database=database, table_name="phenotypes", verbose=TRUE)
+    expect_equal(colnames(df), DBI::dbGetQuery(conn=database, statement="PRAGMA TABLE_INFO(phenotypes)")$name)
+    DBI::dbDisconnect(database)
+    unlink("test.sqlite")
 })
 
-test_that("", {
+test_that("fn_append", {
     set.seed(123)
-
+    list_fnames_tables = fn_simulate_tables(
+         n_entries=50,
+         n_dates=3,
+         n_sites=3,
+         n_treatments=3,
+         n_loci=10e3,
+         save_data_tables=TRUE)$list_fnames_tables
+    df = utils::read.delim(list_fnames_tables$fname_phenotypes, header=TRUE)
+    database = DBI::dbConnect(drv=RSQLite::SQLite(), dbname="test.sqlite")
+    ### Prepare the tables
+    list_df_data_and_base_tables = fn_prepare_data_table_and_extract_base_tables(df=df, 
+         database=database, table_name="phenotypes", verbose=TRUE)
+    df = list_df_data_and_base_tables$df_possibly_modified
+    n = nrow(df); p = ncol(df)
+    # vec_idx_columns_HASH_UID_and_required = which(colnames(df) %in% c("PHENOTYPE_HASH", "PHENOTYPE_UID", GLOBAL_list_required_colnames_per_table()$phenotypes))
+    vec_idx_columns_HASH_UID_and_required = 1:17
+    df_q1 = droplevels(df[1:floor(n/2),     1:floor(p/2)])
+    df_q2 = droplevels(df[1:floor(n/2),     c(vec_idx_columns_HASH_UID_and_required, (floor(p/2)+1):p)])
+    df_q3 = droplevels(df[(floor(n/2)+1):n, c(vec_idx_columns_HASH_UID_and_required, (floor(p/2)+1):p)])
+    df_q4 = droplevels(df[(floor(n/2)+1):n, 1:floor(p/2)])
+    df_centre = droplevels(df[floor(n*(1/3)):floor(n*(2/3)), c(vec_idx_columns_HASH_UID_and_required, floor(p*(1/3)):floor(p*(2/3)))])
+    DBI::dbDisconnect(database)
+    ### Add new columns
+    database = DBI::dbConnect(drv=RSQLite::SQLite(), dbname="test.sqlite")
+    DBI::dbWriteTable(conn=database, name="phenotypes", value=df_q1)
+    database = fn_append(df=df_q2, database=database, table_name="phenotypes", verbose=TRUE)
+    df_q1_U_q2 = cbind(df_q1, df_q2[, (length(vec_idx_columns_HASH_UID_and_required)+1):ncol(df_q2)])
+    df_from_db = DBI::dbGetQuery(conn=database, statement="SELECT * FROM phenotypes")
+    expect_equal(df_q1_U_q2, df_from_db)
+    DBI::dbDisconnect(database)
+    unlink("test.sqlite")
+    ### Add new rows
+    database = DBI::dbConnect(drv=RSQLite::SQLite(), dbname="test.sqlite")
+    DBI::dbWriteTable(conn=database, name="phenotypes", value=df_q1)
+    database = fn_append(df=df_q4, database=database, table_name="phenotypes", verbose=TRUE)
+    df_q1_U_q4 = rbind(df_q1, df_q4)
+    df_from_db = DBI::dbGetQuery(conn=database, statement="SELECT * FROM phenotypes")
+    expect_equal(df_q1_U_q4, df_from_db)
+    DBI::dbDisconnect(database)
+    unlink("test.sqlite")
+    ### Add new columns and new rows
+    database = DBI::dbConnect(drv=RSQLite::SQLite(), dbname="test.sqlite")
+    DBI::dbWriteTable(conn=database, name="phenotypes", value=df_q1)
+    database = fn_append(df=df_q3, database=database, table_name="phenotypes", verbose=TRUE)
+    df_NA_q2 = data.frame(matrix(NA, nrow=nrow(df_q1), ncol=ncol(df_q3[, (length(vec_idx_columns_HASH_UID_and_required)+1):ncol(df_q3)])))
+    colnames(df_NA_q2) = colnames(df_q3[, (length(vec_idx_columns_HASH_UID_and_required)+1):ncol(df_q3)])
+    df_NA_q4 = data.frame(matrix(NA, nrow=nrow(df_q3), ncol=ncol(df_q1)))
+    colnames(df_NA_q4) = colnames(df_q4)
+    df_NA_q4[, 1:length(vec_idx_columns_HASH_UID_and_required)] = df_q4[, 1:length(vec_idx_columns_HASH_UID_and_required)]
+    df_q1_U_q3 = rbind(
+        cbind(df_q1,    df_NA_q2),
+        cbind(df_NA_q4, df_q3[, (length(vec_idx_columns_HASH_UID_and_required)+1):ncol(df_q3)])
+    )
+    df_from_db = DBI::dbGetQuery(conn=database, statement="SELECT * FROM phenotypes")
+    expect_equal(df_q1_U_q3, df_from_db)
+    DBI::dbDisconnect(database)
+    unlink("test.sqlite")
+    ### Initialise with centre and add the entire table
+    database = DBI::dbConnect(drv=RSQLite::SQLite(), dbname="test.sqlite")
+    DBI::dbWriteTable(conn=database, name="phenotypes", value=df_centre)
+    database = fn_append(df=df, database=database, table_name="phenotypes", verbose=TRUE)
+    df_from_db = DBI::dbGetQuery(conn=database, statement="SELECT * FROM phenotypes")
+    expect_equal(df, df_from_db)
+    DBI::dbDisconnect(database)
+    unlink("test.sqlite")
 })
 
 test_that("", {

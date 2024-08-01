@@ -15,7 +15,7 @@ devtools::install_github("jeffersonfparil/db")
 
 ## Schema
 
-Each database will correspond to a single species with the following schema. **The 7 base tables are shown on top while the 3 data tables are at the bottom**:
+Each database will correspond to a single species with the schema below. **The 7 base tables are shown on top while the 3 data tables are at the bottom**. Base tables have fixed number of columns while the data tables have a dynamic number of tables where user can continually add more columns.
 
 ```mermaid
 erDiagram
@@ -144,7 +144,23 @@ erDiagram
     loci ||--o{ genotypes : "defines the loci"
 ```
 
-A brief apology to the schema above:
+### Base tables
+
+1. entries
+2. dates
+3. sites
+4. treatments
+5. traits
+6. abiotics
+7. loci
+
+### Data tables
+
+1. phenotypes
+2. environments
+3. genotypes
+
+### A brief apology to the schema above:
 
 1. Genotypes refer to individuals, population, families or pools as long as they relate to a single line of allele frequencies or genotype values in some genotype matrix.
 2. [POSIX time](https://en.wikipedia.org/wiki/Unix_time) is used to have a low memory-footprint date-time relator across tables with the dates table detailing the human-readable dates, times and FVI seasons.

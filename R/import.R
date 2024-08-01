@@ -1086,6 +1086,7 @@ fn_set_classification_of_rows = function(df, database, table_name, verbose=verbo
 #'      save_data_tables=TRUE)$list_fnames_tables
 #' df = utils::read.delim(list_fnames_tables$fname_phenotypes, header=TRUE)
 #' database = DBI::dbConnect(drv=RSQLite::SQLite(), dbname="test.sqlite")
+#' ### Prepare the tables
 #' list_df_data_and_base_tables = fn_prepare_data_table_and_extract_base_tables(df=df, 
 #'      database=database, table_name="phenotypes", verbose=TRUE)
 #' df = list_df_data_and_base_tables$df_possibly_modified
@@ -1095,6 +1096,8 @@ fn_set_classification_of_rows = function(df, database, table_name, verbose=verbo
 #' ### Detect column intersections
 #' list_set_classification_of_columns = fn_set_classification_of_columns(df=df, database=database, 
 #'      table_name="phenotypes", verbose=TRUE)
+#' DBI::dbDisconnect(database)
+#' unlink("test.sqlite")
 #' @export
 fn_set_classification_of_columns = function(df, database, table_name, verbose=TRUE) {
     ################################################################
@@ -1118,6 +1121,8 @@ fn_set_classification_of_columns = function(df, database, table_name, verbose=TR
     if (verbose) {
         print(paste0("Classifying columns in the incoming '", table_name, "' table to check for intersections with the data in the existing database."))
     }
+    ### Remove quotes which will interfere with SQL queries
+    df = fn_remove_quotes_and_newline_characters_in_data(df, verbose=FALSE)
     ### Classify columns
     vec_existing_colnames = DBI::dbGetQuery(conn=database, statement=sprintf("PRAGMA TABLE_INFO('%s')", table_name))$name
 	vec_incoming_colnames = colnames(df)
@@ -1144,6 +1149,36 @@ fn_set_classification_of_columns = function(df, database, table_name, verbose=TR
     return(list_set_classification_of_columns)
 }
 
+#' Add new columns into an existing data table in the database
+#' @param df data frame representing a data table, e.g. phenotypes, environments or genotypes table
+#' @param database an open SQLite database connection
+#' @param table_name name of the data table represented by df
+#' @param verbose Show messages? (Default=TRUE)
+#' @returns
+#'  - Ok: database - the same open SQLite database connection from the input
+#'  - Err: dbError
+#' @examples
+#' list_fnames_tables = fn_simulate_tables(
+#'      n_entries=50,
+#'      n_dates=3,
+#'      n_sites=3,
+#'      n_treatments=3,
+#'      n_loci=10e3,
+#'      save_data_tables=TRUE)$list_fnames_tables
+#' df = utils::read.delim(list_fnames_tables$fname_phenotypes, header=TRUE)
+#' database = DBI::dbConnect(drv=RSQLite::SQLite(), dbname="test.sqlite")
+#' ### Prepare the tables
+#' list_df_data_and_base_tables = fn_prepare_data_table_and_extract_base_tables(df=df, 
+#'      database=database, table_name="phenotypes", verbose=TRUE)
+#' df = list_df_data_and_base_tables$df_possibly_modified
+#' df_first_half = droplevels(df[, 1:floor(ncol(df)/2)])
+#' ### Import the first half of the data table into the database
+#' DBI::dbWriteTable(conn=database, name="phenotypes", value=df_first_half)
+#' ### Add new columns
+#' database = fn_add_new_columns(df=df, database=database, table_name="phenotypes", verbose=TRUE)
+#' DBI::dbDisconnect(database)
+#' unlink("test.sqlite")
+#' @export
 fn_add_new_columns = function(df, database, table_name, verbose=TRUE) {
     ################################################################
     ### TEST
@@ -1157,6 +1192,11 @@ fn_add_new_columns = function(df, database, table_name, verbose=TRUE) {
     # df_test = fn_prepare_data_table_and_extract_base_tables(df=df[, c(1:20, seq(21, ncol(df), by=2))], database=database, table_name=table_name, verbose=verbose)$df_possibly_modified
     # DBI::dbWriteTable(conn=database, name=table_name, value=df_test, overwrite=TRUE)
     ################################################################
+    if (verbose) {
+        print(paste0("Adding new columns to an existing '", table_name, "' table in the database."))
+    }
+    ### Remove quotes which will interfere with SQL queries
+    df = fn_remove_quotes_and_newline_characters_in_data(df, verbose=FALSE)
 	### Determine which are the new columns to add
     list_set_classification_of_columns = fn_set_classification_of_columns(df=df, database=database, table_name=table_name, verbose=verbose)
     if (methods::is(list_set_classification_of_columns, "dbError")) {
@@ -1186,13 +1226,61 @@ fn_add_new_columns = function(df, database, table_name, verbose=TRUE) {
             DBI::dbExecute(conn=database, statement=query)
             # head(DBI::dbGetQuery(conn=database, statement=paste0("SELECT * FROM ", table_name)))
         }
+        if (verbose) {
+            print(
+                paste0("The following new columns were appended into the '", table_name, "' table: ", 
+                paste(vec_incoming_colnames[vec_idx_incoming_columns_to_add], collapse=", "))
+            )
+        }
     }
     return(database)
 }
 
-### Note that it is easier to:
-###     (1) replace the entire table, i.e. when the source table is a complete superset of the destination table, and
-###     (2) add new rows
+#' Append data into existing data table in the database
+#' @param df data frame representing a base (entries, dates, sites, treatments, traits, abiotics, 
+#'  and loci) or data (phenotypes, environments and genotypes) table
+#' @param database an open SQLite database connection
+#' @param table_name name of the base or data table represented by df
+#' @param verbose Show messages? (Default=TRUE)
+#' @returns
+#'  - Ok: database - the same open SQLite database connection from the input
+#'  - Err: dbError
+#' @examples
+#' list_fnames_tables = fn_simulate_tables(
+#'      n_entries=50,
+#'      n_dates=3,
+#'      n_sites=3,
+#'      n_treatments=3,
+#'      n_loci=10e3,
+#'      save_data_tables=TRUE)$list_fnames_tables
+#' df = utils::read.delim(list_fnames_tables$fname_phenotypes, header=TRUE)
+#' database = DBI::dbConnect(drv=RSQLite::SQLite(), dbname="test.sqlite")
+#' ### Prepare the tables
+#' list_df_data_and_base_tables = fn_prepare_data_table_and_extract_base_tables(df=df, 
+#'      database=database, table_name="phenotypes", verbose=TRUE)
+#' df = list_df_data_and_base_tables$df_possibly_modified
+#' n = nrow(df); p = ncol(df)
+#' vec_idx_columns_HASH_UID_and_required = which(colnames(df) %in% c("PHENOTYPE_HASH", "PHENOTYPE_UID",
+#'      GLOBAL_list_required_colnames_per_table()$phenotypes))
+#' df_q1 = droplevels(df[1:floor(n/2),     1:floor(p/2)])
+#' df_q2 = droplevels(df[1:floor(n/2),     c(vec_idx_columns_HASH_UID_and_required, (floor(p/2)+1):p)])
+#' df_q3 = droplevels(df[(floor(n/2)+1):n, c(vec_idx_columns_HASH_UID_and_required, (floor(p/2)+1):p)])
+#' df_q4 = droplevels(df[(floor(n/2)+1):n, 1:floor(p/2)])
+#' ### Import the df_q1 into the database
+#' DBI::dbWriteTable(conn=database, name="phenotypes", value=df_q1)
+#' ### Add new rows and columns, i.e. df_q3
+#' database = fn_append(df=df_q3, database=database, table_name="phenotypes", verbose=TRUE)
+#' ### Add df_q2
+#' database = fn_append(df=df_q2, database=database, table_name="phenotypes", verbose=TRUE)
+#' ### Add df_q4
+#' database = fn_append(df=df_q4, database=database, table_name="phenotypes", verbose=TRUE)
+#' DBI::dbDisconnect(database)
+#' unlink("test.sqlite")
+#' @details
+#' Note that it is easier to:
+#'     (1) replace the entire table, i.e. when the source table is a complete superset of the destination table, and
+#'     (2) add new rows
+#' @export
 fn_append = function(df, database, table_name, verbose=TRUE) {
     ################################################################
     ### TEST
@@ -1210,7 +1298,7 @@ fn_append = function(df, database, table_name, verbose=TRUE) {
     # DBI::dbWriteTable(conn=database, name=table_name, value=df_test, overwrite=TRUE)
     ################################################################
     ### Check inputs
-    error = fn_check_import_inputs(df=df, database=database, table_name=table_name, check_UIDs=TRUE)
+    error = fn_check_import_inputs(df=df, database=database, table_name=table_name, check_UIDs=TRUE, check_if_table_exists=TRUE)
     if (!is.null(error)) {
         error@message = gsub("FUNCTION_NAME", "fn_append", error@message)
         return(error)
@@ -1230,6 +1318,11 @@ fn_append = function(df, database, table_name, verbose=TRUE) {
             message=paste0("Error in fn_append(...): error classifying columns of incoming '", table_name, "' table.")))
         return(error)
     }
+    if (verbose) {
+        print(paste0("Appending data into the existing '", table_name, "' table in the database."))
+    }
+    ### Remove quotes which will interfere with SQL queries
+    df = fn_remove_quotes_and_newline_characters_in_data(df, verbose=FALSE)
     ### If the existing table is the same as the incoming table, then there is nothing for us to do
     if (
         (list_set_classification_of_rows$n_intersecting_rows == list_set_classification_of_rows$n_existing_rows) &&
@@ -1255,7 +1348,7 @@ fn_append = function(df, database, table_name, verbose=TRUE) {
         return(database)
     }
     ### Add new columns (Note that we need to do this before adding new rows)
-    if (list_set_classification_of_rows$n_rows_exclusive_to_incoming_table > 0) {
+    if (list_set_classification_of_columns$n_columns_exclusive_to_existing_table > 0) {
         database = fn_add_new_columns(df=df, database=database, table_name=table_name, verbose=verbose)
         if (methods::is(database, "dbError")) {
             error = chain(database, methods::new("dbError",
@@ -1284,7 +1377,7 @@ fn_append = function(df, database, table_name, verbose=TRUE) {
         print(paste0("There are row intersections between the existing and incoming '", table_name, "' tables."))
         print(paste0("Replacing the contents of the existing table at the intersecting rows and columns using the data from the incoming '", table_name, "' table."))
     }
-    pb = utils::txtProgressBar(min=0, max=length(vec_idx_incoming_intersecting_rows), style=3)
+    if (verbose) {pb = utils::txtProgressBar(min=0, max=length(vec_idx_incoming_intersecting_rows), style=3)}
     for (i in vec_idx_incoming_intersecting_rows) {
         # i = 1
         query = paste0(
@@ -1297,9 +1390,9 @@ fn_append = function(df, database, table_name, verbose=TRUE) {
             eval(parse(text=paste0("df$", prefix_of_HASH_and_UID_columns, "_UID[i]")))
         )
         DBI::dbExecute(conn=database, statement=query)
-        utils::setTxtProgressBar(pb, i)
+        if (verbose) {utils::setTxtProgressBar(pb, i)}
     }
-    close(pb)
+    if (verbose) {close(pb)}
     ### Append the rows exclusive to the incoming table
     DBI::dbAppendTable(conn=database, name=table_name, value=df[list_set_classification_of_rows$vec_bool_rows_exclusive_to_incoming_table, , drop=FALSE])
     ### Output the database connection
