@@ -46,7 +46,7 @@ list_fnames_tables = fn_simulate_tables(
 df = utils::read.delim(list_fnames_tables$fname_phenotypes, header=TRUE)
 database = DBI::dbConnect(drv=RSQLite::SQLite(), dbname="test.sqlite")
 df = fn_add_POSIX_time(df=df, database=database, table_name="phenotypes", 
- bool_add_FVI_year_season=TRUE, verbose=TRUE)
+     bool_add_FVI_year_season=TRUE, verbose=TRUE)
 DBI::dbDisconnect(database)
 unlink("test.sqlite")
 }

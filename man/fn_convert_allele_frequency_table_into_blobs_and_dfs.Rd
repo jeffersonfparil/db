@@ -50,7 +50,7 @@ list_fnames_tables = fn_simulate_tables(
 df = utils::read.delim(list_fnames_tables$fname_genotypes, header=TRUE)
 database = DBI::dbConnect(drv=RSQLite::SQLite(), dbname="test.sqlite")
 list_df_genotypes_df_loci_df_entries = fn_convert_allele_frequency_table_into_blobs_and_dfs(df=df, 
- database=database, table_name="genotypes", verbose=TRUE)
+     database=database, table_name="genotypes", verbose=TRUE)
 DBI::dbDisconnect(database)
 unlink("test.sqlite")
 }

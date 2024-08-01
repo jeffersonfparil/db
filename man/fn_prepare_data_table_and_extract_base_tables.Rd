@@ -16,7 +16,7 @@ fn_prepare_data_table_and_extract_base_tables(
 
 \item{database}{an open SQLite database connection}
 
-\item{table_name}{name of the base or data table represented by df}
+\item{table_name}{name of the data table represented by df}
 
 \item{verbose}{Show messages? (Default=TRUE)}
 }
@@ -49,7 +49,7 @@ list_fnames_tables = fn_simulate_tables(
 df = utils::read.delim(list_fnames_tables$fname_phenotypes, header=TRUE)
 database = DBI::dbConnect(drv=RSQLite::SQLite(), dbname="test.sqlite")
 list_df_data_and_base_tables = fn_prepare_data_table_and_extract_base_tables(df=df, 
- database=database, table_name="phenotypes", verbose=TRUE)
+     database=database, table_name="phenotypes", verbose=TRUE)
 DBI::dbDisconnect(database)
 unlink("test.sqlite")
 }

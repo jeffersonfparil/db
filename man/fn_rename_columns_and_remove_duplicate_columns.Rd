@@ -42,7 +42,7 @@ list_fnames_tables = fn_simulate_tables(
 df = utils::read.delim(list_fnames_tables$fname_phenotypes, header=TRUE)
 database = DBI::dbConnect(drv=RSQLite::SQLite(), dbname="test.sqlite")
 df = fn_rename_columns_and_remove_duplicate_columns(df=df, database=database, 
- table_name="phenotypes", verbose=TRUE)
+     table_name="phenotypes", verbose=TRUE)
 DBI::dbDisconnect(database)
 unlink("test.sqlite")
 }

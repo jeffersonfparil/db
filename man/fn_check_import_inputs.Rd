@@ -4,7 +4,13 @@
 \alias{fn_check_import_inputs}
 \title{Check the validity of importation function inputs}
 \usage{
-fn_check_import_inputs(df, database, table_name, check_UIDs = FALSE)
+fn_check_import_inputs(
+  df,
+  database,
+  table_name,
+  check_UIDs = FALSE,
+  check_if_table_exists = FALSE
+)
 }
 \arguments{
 \item{df}{data frame representing a base (entries, dates, sites, treatments, traits, abiotics,
@@ -15,6 +21,8 @@ and loci) or data (phenotypes, environments and genotypes) table}
 \item{table_name}{name of the base or data table represented by df}
 
 \item{check_UIDs}{Does the table-specific UID column exist in df? (Default=FALSE)}
+
+\item{check_if_table_exists}{Does the table exist in the database? (Default=FALSE)}
 }
 \value{
 \itemize{
@@ -39,7 +47,7 @@ database = DBI::dbConnect(drv=RSQLite::SQLite(), dbname="test.sqlite")
 null_error = fn_check_import_inputs(df=df, database=database, table_name="phenotypes", 
  check_UIDs=FALSE)
 non_null_error = fn_check_import_inputs(df=df[, -1:-5], database=database, 
- table_name="phenotypes", check_UIDs=FALSE)
+     table_name="phenotypes", check_UIDs=FALSE)
 DBI::dbDisconnect(database)
 unlink("test.sqlite")
 }
