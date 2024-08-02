@@ -542,7 +542,7 @@ fn_add_hash_UID_and_remove_duplicate_rows = function(df, database, table_name, v
             return(error)
         }
     }
-    ### Define the has and UID prefix
+    ### Define the hash and UID prefix
     prefix_of_HASH_and_UID_columns = fn_define_hash_and_UID_prefix(table_name=table_name)
     ### Check if we have non-empty hash column
     vec_hash = eval(parse(text=paste0("df$", prefix_of_HASH_and_UID_columns, "_HASH")))
@@ -742,7 +742,7 @@ fn_convert_allele_frequency_table_into_blobs_and_dfs = function(df, database, ta
 #' @param table_name name of the data table represented by df
 #' @param verbose Show messages? (Default=TRUE)
 #' @returns
-#'  - Ok:
+#'  - Ok list:
 #'      $df_possibly_modified: data table with column names converted to uppercase, hash and UID 
 #'          columns added, and duplicate rows and column ommitted
 #'      $df_entries: "entries" base table or data frame
@@ -752,6 +752,7 @@ fn_convert_allele_frequency_table_into_blobs_and_dfs = function(df, database, ta
 #'      $df_traits: "traits" base table or data frame
 #'      $df_abiotics: "abiotics" base table or data frame
 #'      $df_loci: "loci" base table or data frame
+#'  - Ok NULL: the data table and its resulting base tables are entirely redundant
 #'  - Err: dbError
 #' @examples
 #' list_fnames_tables = fn_simulate_tables(
@@ -888,15 +889,24 @@ fn_prepare_data_table_and_extract_base_tables = function(df, database, table_nam
             } else if ((base_table_name == "loci") & (table_name == "genotypes")) {
                 df_base_table = list_df_genotypes_df_loci_df_entries$df_loci
             } else {
-                vec_required_colnames = colnames(df)[colnames(df) %in% GLOBAL_list_required_colnames_per_table()[[base_table_name]]]
-                if (length(vec_required_colnames) == 0) {next} ### Skip for data tables extracting an inappropriate base tables, e.g df_phenotypes --> df_abiotics
-                vec_IDs = eval(parse(text=paste0("unique(paste0(", paste(paste0("df$", vec_required_colnames), collapse=", '\t', "), "))")))
-                df_base_table = as.data.frame(matrix(unlist(strsplit(vec_IDs, "\t")), byrow=TRUE, ncol=length(vec_required_colnames)))
+                vec_idx_required_columns = which(colnames(df) %in% GLOBAL_list_required_colnames_per_table()[[base_table_name]])
+                vec_required_column_names = colnames(df)[vec_idx_required_columns]
+                if (length(vec_required_column_names) == 0) {next} ### Skip for data tables extracting an inappropriate base tables, e.g df_phenotypes --> df_abiotics
+                vec_idx_numeric_required_column = c()
+                for (j in vec_idx_required_columns) {
+                    vec_idx_numeric_required_column = c(vec_idx_numeric_required_column, is.numeric(df[, j]))
+                }
+                vec_idx_numeric_required_column = which(vec_idx_numeric_required_column)
+                vec_IDs = eval(parse(text=paste0("unique(paste0(", paste(paste0("df$", vec_required_column_names), collapse=", '\t', "), "))")))
+                df_base_table = as.data.frame(matrix(unlist(strsplit(vec_IDs, "\t")), byrow=TRUE, ncol=length(vec_required_column_names)))
+                for (j in vec_idx_numeric_required_column) {
+                    df_base_table[, j] = as.numeric(df_base_table[, j])
+                }
                 if (GLOBAL_df_valid_tables()$NEEDS_DESCRIPTION[i]) {
                     df_base_table$DESCRIPTION = ""
-                    colnames(df_base_table)[1:(ncol(df_base_table)-1)] = vec_required_colnames
+                    colnames(df_base_table)[1:(ncol(df_base_table)-1)] = vec_required_column_names
                 } else {
-                    colnames(df_base_table) = vec_required_colnames
+                    colnames(df_base_table) = vec_required_column_names
                 }
                 df_base_table = fn_add_hash_UID_and_remove_duplicate_rows(df=df_base_table, database=database, table_name=base_table_name, verbose=verbose)
                 if (methods::is(df_base_table, "dbError")) {
@@ -910,7 +920,7 @@ fn_prepare_data_table_and_extract_base_tables = function(df, database, table_nam
                 base_table_prefix_of_HASH_and_UID_columns = fn_define_hash_and_UID_prefix(table_name=base_table_name)
                 # vec_base_UIDs = df_base_table$`base_table_prefix_of_HASH_and_UID_columns_UID`
                 eval(parse(text=paste0("df$`", base_table_prefix_of_HASH_and_UID_columns, "_UID` = NA")))
-                vec_idx_data_column_selected = colnames(df) %in% vec_required_colnames
+                vec_idx_data_column_selected = colnames(df) %in% vec_required_column_names
                 vec_idx_data_column_selected_order = order(colnames(df)[vec_idx_data_column_selected])
                 vec_data_string_IDs = unlist(apply(df, MARGIN=1, FUN=function(x){paste(gsub(" ", "", x[vec_idx_data_column_selected][vec_idx_data_column_selected_order]), collapse="\t")}))
                 if (sum(DBI::dbGetQuery(conn=database, statement="PRAGMA TABLE_LIST")$name %in% df_base_table) == 0) {
@@ -921,7 +931,7 @@ fn_prepare_data_table_and_extract_base_tables = function(df, database, table_nam
                 for (i in 1:nrow(df_base_table_all)) {
                     # i = 1
                     base_UID = eval(parse(text=paste0("df_base_table_all$`", base_table_prefix_of_HASH_and_UID_columns, "_UID`[i]")))
-                    vec_idx_base_column_selected = colnames(df_base_table_all) %in% vec_required_colnames
+                    vec_idx_base_column_selected = colnames(df_base_table_all) %in% vec_required_column_names
                     vec_idx_base_column_selected_order = order(colnames(df_base_table_all)[vec_idx_base_column_selected])
                     vec_idx_add_base_UID = which(vec_data_string_IDs %in% paste(gsub(" ", "", df_base_table_all[i, vec_idx_base_column_selected][vec_idx_base_column_selected_order]), collapse="\t"))
                     eval(parse(text=paste0("df$`", base_table_prefix_of_HASH_and_UID_columns, "_UID`[vec_idx_add_base_UID] = base_UID")))
@@ -1399,6 +1409,29 @@ fn_append = function(df, database, table_name, verbose=TRUE) {
     return(database)
 }
 
+#' Initialise the database
+#' @param fname_db name of the SQLite database file
+#' @param list_df_data_tables list containing the 3 data tables as data frames, 
+#'  i.e. 'df_phenotypes', 'df_environments' and 'df_genotypes' data tables
+#' @param verbose Show messages? (Default=TRUE)
+#' @returns
+#'  - Ok: 0
+#'  - Err: dbError
+#' @examples
+#' fname_data_tables = fn_simulate_tables(
+#'      n_entries=50,
+#'      n_dates=3,
+#'      n_sites=3,
+#'      n_treatments=3,
+#'      n_loci=10e3,
+#'      save_data_tables=TRUE)$list_fnames_tables$fname_data_tables
+#' list_df_data_tables = list()
+#' for (table_name in c("phenotypes", "environments", "genotypes")) {
+#'     eval(parse(text=paste0("list_df_data_tables$df_", table_name, 
+#'          " = as.data.frame(readxl::read_excel(path=fname_data_tables, sheet=table_name))")))
+#' }
+#' fn_initialise_db(fname_db="test.sqlite", list_df_data_tables=list_df_data_tables)
+#' @export
 fn_initialise_db = function(fname_db, list_df_data_tables, verbose=TRUE) {
     ################################################################
     ### TEST
@@ -1413,67 +1446,73 @@ fn_initialise_db = function(fname_db, list_df_data_tables, verbose=TRUE) {
     if (file.exists(fname_db)) {
         unlink(fname_db)
     }
+    if (verbose) {
+        print(paste0("Initialising the database: '", fname_db, "' where the "))
+    }
     ### Create and open the connection to the database
     database = DBI::dbConnect(drv=RSQLite::SQLite(), dbname=fname_db)
     ### Prepare the data tables and extract the base tables from the data tables
-    error = NULL
     for (table_name in GLOBAL_df_valid_tables()$NAME[GLOBAL_df_valid_tables()$CLASS=="data"]) {
         # table_name = GLOBAL_df_valid_tables()$NAME[GLOBAL_df_valid_tables()$CLASS=="data"][2]
         df = list_df_data_tables[[paste0("df_", table_name)]]
+        if (is.null(df)) {
+            df = list_df_data_tables[[table_name]]
+        }
+        if (is.null(df)) {
+            error = methods::new("dbError",
+                code=000,
+                message=paste0("Error in fn_initialise_db(...): '", table_name, "' table does not exist in the input list_df_data_tables."))
+            return(error)
+        }
         ### Remove quotes which will interfere with SQL queries
         df = fn_remove_quotes_and_newline_characters_in_data(df, verbose=FALSE)
-        if (!is.null(df)) {
-            list_tables = fn_prepare_data_table_and_extract_base_tables(df=df, database=database, table_name=table_name, verbose=verbose)
-            if (methods::is(list_tables, "dbError")) {
-                if (is.null(error)) {
-                    error = chain(list_tables, methods::new("dbError",
-                        code=000,
-                        message=paste0("Error in fn_initialise_db(...): error preparing '", table_name, "' table.")))
-                } else {
-                    error = chain(error, 
-                        chain(list_tables, methods::new("dbError",
-                            code=000,
-                            message=paste0("Error in fn_initialise_db(...): error preparing '", table_name, "' table."))))
-                }
+        if (methods::is(df, "dbError")) {
+            error = chain(df, methods::new("dbError",
+                code=000,
+                message=paste0("Error in fn_initialise_db(...): error preparing '", table_name, "' table.")))
+            return(error)
+        }
+        list_tables = fn_prepare_data_table_and_extract_base_tables(df=df, database=database, table_name=table_name, verbose=verbose)
+        if (methods::is(list_tables, "dbError")) {
+            error = chain(list_tables, methods::new("dbError",
+                code=000,
+                message=paste0("Error in fn_initialise_db(...): error preparing '", table_name, "' table.")))
+            return(error)
+        }
+        ### Skip data tables which are entirely redundant as determined by fn_prepare_data_table_and_extract_base_tables(...) above
+        if (is.null(list_tables)) {next}
+        ### Initialise the data table
+        DBI::dbWriteTable(conn=database, name=table_name, value=list_tables$df_possibly_modified, overwrite=TRUE)
+        ### Initialise or append the base tables
+        vec_df_base_names = names(list_tables)[-1]
+        vec_df_base_names = vec_df_base_names[unlist(lapply(vec_df_base_names, FUN=function(x){!is.null((list_tables[[x]]))}))]
+        for (df_base_name in vec_df_base_names) {
+            # df_base_name = vec_df_base_names[1]
+            table_name = gsub("df_", "", df_base_name)
+            if (verbose) {
+                print("--------------------------------------------------")
+                print(paste0("Initialise/append '", table_name, "' table"))
+                print("--------------------------------------------------")
+            }
+            df_base = list_tables[[df_base_name]]
+            if (sum(DBI::dbGetQuery(conn=database, statement="PRAGMA TABLE_LIST")$name %in% table_name) == 0) {
+                ### Write the table if it has not been initialised yet
+                DBI::dbWriteTable(conn=database, name=table_name, value=df_base)
             } else {
-                ### Skip data tables which are entirely redundant as determined by fn_prepare_data_table_and_extract_base_tables(...) above
-                if (is.null(list_tables)) {next}
-                ### Initialise the data table
-                DBI::dbWriteTable(conn=database, name=table_name, value=list_tables$df_possibly_modified, overwrite=TRUE)
-                ### Initialise or append the base tables
-                vec_df_base_names = names(list_tables)[-1]
-                vec_df_base_names = vec_df_base_names[unlist(lapply(vec_df_base_names, FUN=function(x){!is.null((list_tables[[x]]))}))]
-                for (df_base_name in vec_df_base_names) {
-                    # df_base_name = vec_df_base_names[1]
-                    table_name = gsub("df_", "", df_base_name)
-                    if (verbose) {
-                        print("--------------------------------------------------")
-                        print(paste0("Initialise/append '", table_name, "' table"))
-                        print("--------------------------------------------------")
-                    }
-                    df_base = list_tables[[df_base_name]]
-                    if (sum(DBI::dbGetQuery(conn=database, statement="PRAGMA TABLE_LIST")$name %in% table_name) == 0) {
-                        ### Write the table if it has not been initialised yet
-                        DBI::dbWriteTable(conn=database, name=table_name, value=df_base)
-                    } else {
-                        ### Append the table into the existing table in the database
-                        database = fn_append(df=df_base, database=database, table_name=table_name, verbose=verbose)
-                        if (methods::is(database, "dbError")) {
-                            error = chain(database, methods::new("dbError",
-                                code=000,
-                                message=paste0("Error in fn_initialise_db(...): error appending '", table_name, "' table.")))
-                        }
-                    }
-                }
-                if (verbose) {
-                    print("Tables list:")
-                    print(DBI::dbGetQuery(conn=database, statement="PRAGMA TABLE_LIST"))
+                ### Append the table into the existing table in the database
+                database = fn_append(df=df_base, database=database, table_name=table_name, verbose=verbose)
+                if (methods::is(database, "dbError")) {
+                    error = chain(database, methods::new("dbError",
+                        code=000,
+                        message=paste0("Error in fn_initialise_db(...): error appending '", table_name, "' table.")))
+                    return(error)
                 }
             }
         }
-    }
-    if (!is.null(error)) {
-        return(error)
+        if (verbose) {
+            print("Tables list:")
+            print(DBI::dbGetQuery(conn=database, statement="PRAGMA TABLE_LIST"))
+        }
     }
     if (verbose) {
         print(DBI::dbGetQuery(conn=database, statement="PRAGMA TABLE_LIST"))
@@ -1482,67 +1521,153 @@ fn_initialise_db = function(fname_db, list_df_data_tables, verbose=TRUE) {
     return(0)
 }
 
+#' Update the database
+#' @param fname_db name of the SQLite database file
+#' @param df data frame representing a base (entries, dates, sites, treatments, traits, abiotics, 
+#'  and loci) or data (phenotypes, environments and genotypes) table
+#' @param table_name name of the base or data table represented by df
+#' @param verbose Show messages? (Default=TRUE)
+#' @returns
+#'  - Ok: 0
+#'  - Err: dbError
+#' @examples
+#' ### Initialise the database
+#' fname_db = "test.sqlite"
+#' fname_data_tables = fn_simulate_tables(
+#'      n_entries=50,
+#'      n_dates=3,
+#'      n_sites=3,
+#'      n_treatments=3,
+#'      n_loci=10e3,
+#'      save_data_tables=TRUE)$list_fnames_tables$fname_data_tables
+#' list_df_data_tables = list()
+#' for (table_name in c("phenotypes", "environments", "genotypes")) {
+#'     eval(parse(text=paste0("list_df_data_tables$df_", table_name, 
+#'     " = as.data.frame(readxl::read_excel(path=fname_data_tables, sheet=table_name))")))
+#' }
+#' fn_initialise_db(fname_db=fname_db, list_df_data_tables=list_df_data_tables)
+#' ### Update the database with new data
+#' list_sim = fn_simulate_tables(
+#'      n_entries=50,
+#'      n_dates=3,
+#'      n_sites=3,
+#'      n_treatments=3,
+#'      n_loci=10e3,
+#'      save_data_tables=TRUE)
+#' fn_update_database(fname_db=fname_db, df=list_sim$df_phenotypes, 
+#'      table_name="phenotypes", verbose=TRUE)
+#' @export
 fn_update_database = function(fname_db, df, table_name, verbose=TRUE) {
     ################################################################
-    ### TEST
-    # list_fnames_tables = fn_simulate_tables(n_dates=3, n_sites=3, n_treatments=3, save_data_tables=TRUE)$list_fnames_tables
+    # ### TEST
     # fname_db = "test.sqlite"
-    # ### Load data tables for subsampling
-    # df_phenotypes = utils::read.delim(list_fnames_tables$fname_phenotypes, header=TRUE)
-    # df_environments = utils::read.delim(list_fnames_tables$fname_environments, header=TRUE)
-    # ### Note for df_genotypes: make sure to check.names=FALSE to ensure the entry names are consistent across data tables, i.e. entry names here are the column names
-    # df_genotypes = utils::read.delim(list_fnames_tables$fname_genotypes, header=TRUE, check.names=FALSE)
-    # verbose = TRUE
-    # ### Extract base tables for subsampling
-    # unlink(fname_db)
-    # database = DBI::dbConnect(drv=RSQLite::SQLite(), dbname=fname_db)
-    # list_tables_from_phenotypes = fn_prepare_data_table_and_extract_base_tables(df=df_phenotypes, database=database, table_name="phenotypes", verbose=verbose)
-    # list_tables_from_environments = fn_prepare_data_table_and_extract_base_tables(df=df_environments, database=database, table_name="environments", verbose=verbose)
-    # list_tables_from_genotypes = fn_prepare_data_table_and_extract_base_tables(df=df_genotypes, database=database, table_name="genotypes", verbose=verbose)
-    # DBI::dbDisconnect(conn=database)
-    # ### Subsample data tables by random sampling and initialise the database
-    # vec_idx_phenotypes = sample(c(1:nrow(df_phenotypes)), size=floor(0.25*nrow(df_phenotypes)))
-    # vec_idx_environments = sample(c(1:nrow(df_environments)), size=floor(0.25*nrow(df_environments)))
-    # vec_idx_genotypes = sample(c(1:nrow(df_genotypes)), size=floor(0.25*nrow(df_genotypes)))
-    # fn_initialise_db(
-    #     fname_db="test.sqlite",
-    #     df_phenotypes=df_phenotypes[vec_idx_phenotypes, , drop=FALSE],
-    #     df_environments=df_environments[vec_idx_environments, , drop=FALSE],
-    #     df_genotypes=df_genotypes[vec_idx_genotypes, , drop=FALSE],
-    #     verbose=TRUE)
-    # ### Test inputs
-    # fname_db = "test.sqlite"
+    # list_fnames_tables = fn_simulate_tables(
+    #         n_entries=50,
+    #         n_dates=3,
+    #         n_sites=3,
+    #         n_treatments=3,
+    #         n_loci=10e3,
+    #         save_data_tables=TRUE)$list_fnames_tables
+    # ### Partition the phenotypes data table
+    # df = utils::read.delim(list_fnames_tables$fname_phenotypes, header=TRUE)
+    # # database = DBI::dbConnect(drv=RSQLite::SQLite(), dbname="test.sqlite")
+    # # list_df_data_and_base_tables = fn_prepare_data_table_and_extract_base_tables(df=df, 
+    # #         database=database, table_name="phenotypes", verbose=TRUE)
+    # # df = list_df_data_and_base_tables$df_possibly_modified
+    # n = nrow(df); p = ncol(df)
+    # # vec_idx_columns_HASH_UID_and_required = 1:17
+    # vec_idx_columns_HASH_UID_and_required = 1:15
+    # df_q1 = droplevels(df[1:floor(n/2),     1:floor(p/2)])
+    # df_q2 = droplevels(df[1:floor(n/2),     c(vec_idx_columns_HASH_UID_and_required, (floor(p/2)+1):p)])
+    # df_q3 = droplevels(df[(floor(n/2)+1):n, c(vec_idx_columns_HASH_UID_and_required, (floor(p/2)+1):p)])
+    # df_q4 = droplevels(df[(floor(n/2)+1):n, 1:floor(p/2)])
+    # df_centre = droplevels(df[floor(n*(1/3)):floor(n*(2/3)), c(vec_idx_columns_HASH_UID_and_required, floor(p*(1/3)):floor(p*(2/3)))])
+    # ### Poopulate the data tables list to and initialise the database
+    # list_df_data_tables = list()
+    # for (table_name in c("phenotypes", "environments", "genotypes")) {
+    #     if (table_name == "phenotypes") {
+    #         list_df_data_tables$df_phenotypes = df_q1
+    #     } else {
+    #         eval(parse(text=paste0("list_df_data_tables$df_", table_name, 
+    #             " = as.data.frame(readxl::read_excel(path=list_fnames_tables$fname_data_tables, sheet=table_name))")))
+    #     }
+    # }
+    # fn_initialise_db(fname_db=fname_db, list_df_data_tables=list_df_data_tables)
+    # ### Update the database using a phenotypes data table with additional traits (df_q2)
+    # df = df_q2
+    # table_name = "phenotypes"
     # verbose=TRUE
-    # df = df_phenotypes; table_name = "phenotypes"
-    # df = df_environments; table_name = "environments"
-    # df = df_genotypes; table_name = "genotypes"
-    # df = list_tables_from_phenotypes$df_treatments; table_name = "treatments"
-    # df = list_tables_from_environments$df_abiotics; table_name = "abiotics"
-    # df = list_tables_from_genotypes$df_entries; table_name = "entries"
     ################################################################
-    ### Remove quotes which will interfere with SQL queries
-    df = fn_remove_quotes_and_newline_characters_in_data(df, verbose=FALSE)
     ### Connect to the database
     database = DBI::dbConnect(drv=RSQLite::SQLite(), dbname=fname_db)
-    if (GLOBAL_df_valid_tables()$CLASS[GLOBAL_df_valid_tables()$NAME == table_name] == "data") {
-        list_tables = fn_prepare_data_table_and_extract_base_tables(df=df, database=database, table_name=table_name, verbose=verbose)
-        if (methods::is(list_tables, "dbError")) {
-            error = chain(list_tables, methods::new("dbError",
-                code=000,
-                message=paste0("Error in fn_update_database(...): error preparing '", table_name, "' table.")))
-            return(error)
-        }
-        df = list_tables$df_possibly_modified
-    } else {
-        df = fn_add_hash_UID_and_remove_duplicate_rows(df=df, database=database, table_name=table_name, verbose=verbose)
-        if (methods::is(df, "dbError")) {
-            error = chain(df, methods::new("dbError",
-                code=000,
-                message=paste0("Error in fn_update_database(...): error adding UIDs and removing duplicate rows in '", table_name, "' table.")))
-            return(error)
-        }
+    ### Check inputs
+    error = fn_check_import_inputs(df=df, database=database, table_name=table_name)
+    if (!is.null(error)) {
+        error@message = gsub("FUNCTION_NAME", "fn_prepare_data_table_and_extract_base_tables", error@message)
+        return(error)
     }
+    ### Remove quotes which will interfere with SQL queries
+    df = fn_remove_quotes_and_newline_characters_in_data(df, verbose=FALSE)
+    ### Define the has and UID prefix
+    prefix_of_HASH_and_UID_columns = fn_define_hash_and_UID_prefix(table_name=table_name)
+    ### Determine if we are potentially adding new columns to existing rows in the database tables.
+    ###     In which case we need to append the UID and HASH columns into the incoming table,
+    ###     because fn_add_hash_UID_and_remove_duplicate_rows will yield an empty table as all the rows 
+    ###     are duplicates of the existing table in the database.
+    df_tmp = fn_add_hash_UID_and_remove_duplicate_rows(df=df, database=database, table_name=table_name, verbose=verbose)
+    if ((nrow(df_tmp) < nrow(df)) && (sum(colnames(df) %in% paste0(prefix_of_HASH_and_UID_columns, "_", c("HASH", "UID"))) < 2)) {
+        ### Check if we have non-empty hash column
+        vec_hash = eval(parse(text=paste0("df$", prefix_of_HASH_and_UID_columns, "_HASH")))
+        if (verbose) {
+            print(paste0("Using the existing hash and UID columns in the incoming '", table_name, "' table."))
+        }
+        if (is.null(vec_hash) || (sum(is.na(vec_hash)) > 0)) {
+            if (verbose) {
+                print(paste0("Adding hash and UID columns to the incoming '", table_name, "' table."))
+            }
+            ### Hash each row of the incoming table using unique identifying columns (excluding the DESCRIPTION column in sites, treatments, traits, and abiotics base tables)
+            vec_identifying_columns = eval(parse(text=paste0("GLOBAL_list_required_colnames_per_table()$", table_name)))
+            vec_identifying_columns = vec_identifying_columns[!grepl("DESCRIPTION", vec_identifying_columns)]
+            if ((table_name == "phenotypes") | (table_name == "environments")) {
+                ### Include the additional identifying columns (i.e. date-time-related) to the phenotypes and environments data tables
+                vec_identifying_columns = c(vec_identifying_columns, GLOBAL_list_required_colnames_per_table()$additional_IDs)
+            }
+            vec_idx_identifying_columns = which(colnames(df) %in% vec_identifying_columns)
+            vec_hash_incoming = unlist(apply(df[, vec_idx_identifying_columns, drop=FALSE], MARGIN=1, FUN=rlang::hash))
+        } else {
+            vec_hash_incoming = vec_hash
+        }
+        df_existing_HASH_and_UIDs = DBI::dbGetQuery(conn=database, statement=paste0(
+            "SELECT ", prefix_of_HASH_and_UID_columns, "_HASH,", prefix_of_HASH_and_UID_columns, "_UID FROM ", table_name))
+        colnames(df_existing_HASH_and_UIDs) = gsub(paste0(prefix_of_HASH_and_UID_columns, "_"), "", colnames(df_existing_HASH_and_UIDs))
+        ### If there are some unique rows then we use its hash and proper UIDs
+        if (nrow(df_tmp) > 0) {
+            vec_incoming_unique_UIDs = eval(parse(text=paste0("df_tmp$", prefix_of_HASH_and_UID_columns, "_UID")))
+            vec_incoming_unique_HASH = eval(parse(text=paste0("df_tmp$", prefix_of_HASH_and_UID_columns, "_HASH")))
+        }
+        vec_UID_incoming = c()
+        for (hash in vec_hash_incoming) {
+            idx = which(df_existing_HASH_and_UIDs$HASH == hash)
+            if (length(idx) == 1) {
+                ### If the HASH exists in the database:
+                vec_UID_incoming = c(vec_UID_incoming, df_existing_HASH_and_UIDs$UID[idx])
+            } else {
+                ### If the HASH is new:
+                idx = which(vec_incoming_unique_HASH == hash)
+                vec_UID_incoming = c(vec_UID_incoming, vec_incoming_unique_UIDs[idx])
+
+            }
+        }
+        eval(parse(text=paste0("df$", prefix_of_HASH_and_UID_columns, "_HASH = vec_hash_incoming")))
+        eval(parse(text=paste0("df$", prefix_of_HASH_and_UID_columns, "_UID = vec_UID_incoming")))
+    } else {
+        df = df_tmp
+    }
+    ### Append the incoming table into the existing table in the database
     if (nrow(df) > 0) {
+        if (verbose) {
+            print(paste0("Appending the incoming '", table_name, "' table into the database."))
+        }
         database = fn_append(df=df, database=database, table_name=table_name, verbose=verbose)
         if (methods::is(database, "dbError")) {
             error = chain(database, methods::new("dbError",
@@ -1550,7 +1675,14 @@ fn_update_database = function(fname_db, df, table_name, verbose=TRUE) {
                 message=paste0("Error in fn_update_database(...): error appending '", table_name, "' table.")))
             return(error)
         }
+        ### If the incoming table is a data table then we also need to append its associated base tables
         if (GLOBAL_df_valid_tables()$CLASS[GLOBAL_df_valid_tables()$NAME == table_name] == "data") {
+            if (verbose) {
+                print(paste0("Appending the base tables extracted from the incoming '", table_name, "' table into the database."))
+            }
+            list_tables = fn_prepare_data_table_and_extract_base_tables(df=df, database=database, table_name=table_name, verbose=verbose)
+            ### If all the rows are already present in the existing data table in the database, then we skip appending the associated base tables
+            if (is.null(list_tables) == 0) {break}
             for (i in 1:nrow(GLOBAL_df_valid_tables())) {
                 # i = 2
                 if (GLOBAL_df_valid_tables()$CLASS[i] != "base") {next}

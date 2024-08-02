@@ -22,7 +22,7 @@ fn_prepare_data_table_and_extract_base_tables(
 }
 \value{
 \itemize{
-\item Ok:
+\item Ok list:
 $df_possibly_modified: data table with column names converted to uppercase, hash and UID
 columns added, and duplicate rows and column ommitted
 $df_entries: "entries" base table or data frame
@@ -32,6 +32,7 @@ $df_treatments: "treatments" base table or data frame
 $df_traits: "traits" base table or data frame
 $df_abiotics: "abiotics" base table or data frame
 $df_loci: "loci" base table or data frame
+\item Ok NULL: the data table and its resulting base tables are entirely redundant
 \item Err: dbError
 }
 }

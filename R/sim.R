@@ -253,7 +253,9 @@ fn_simulate_tables = function(
     }
     df_abiotics = data.frame(
         ABIOTIC_UID=1:n_abiotics,
-        ABIOTIC=sub("\\b([a-z])", "\\U\\1", (sample((vec_words), size=n_abiotics, replace=FALSE)), perl=TRUE),
+        ABIOTIC=sub("\\b([a-z])", "\\U\\1", sample(
+            toupper(gsub('"', "", gsub("'", "", gsub("\\n", "", gsub("\\r", "", vec_words))))), 
+            size=n_abiotics, replace=FALSE), perl=TRUE),
         DESCRIPTION=""
     )
     for (i in 1:nrow(df_abiotics)) {
@@ -276,12 +278,12 @@ fn_simulate_tables = function(
     df_loci = data.frame(
         LOCUS_UID=1:n_loci,
         CHROMOSOME=unlist(lapply(1:n_chromosomes, FUN=function(i){rep(paste0("chr_", i), times=vec_n_loci_per_chromosome[i])})),
-        POSITION=0,
+        POSITION_PER_CHROMOSOME=0,
         ALLELE=sample(c("A", "a", "T", "t", "C", "c", "G", "g"), size=n_loci, replace=TRUE)
     )
     for (i in 1:n_chromosomes) {
         vec_idx = which(df_loci$CHROMOSOME == paste0("chr_", i))
-        df_loci$POSITION[vec_idx] = sort(sample.int(n=n_loci, size=vec_n_loci_per_chromosome[i], replace=FALSE))
+        df_loci$POSITION_PER_CHROMOSOME[vec_idx] = sort(sample.int(n=n_loci, size=vec_n_loci_per_chromosome[i], replace=FALSE))
     }
     ### Define the data tables, i.e. phenotypes, environmental data, and genotype/allele frequency data
     # %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -343,6 +345,12 @@ fn_simulate_tables = function(
         }
         eval(parse(text=paste0("df_phenotypes$`", trait, "` = vec_y")))
     }
+    ### Do not assume factors for string columns
+    for (j in 1:ncol(df_phenotypes)) {
+        if (is.factor(df_phenotypes[, j])) {
+            df_phenotypes[, j] = as.character(df_phenotypes[, j])
+        }
+    }
     # %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     # %%% Environmental data, i.e. abiotic variables including climatic and edaphic data %%%
     # %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -381,6 +389,12 @@ fn_simulate_tables = function(
         }
         eval(parse(text=paste0("df_environments$`", toupper(abiotic), "` = vec_y")))
     }
+    ### Do not assume factors for string columns
+    for (j in 1:ncol(df_environments)) {
+        if (is.factor(df_environments[, j])) {
+            df_environments[, j] = as.character(df_environments[, j])
+        }
+    }
     # %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     # %%% Genotype data per entry across loci %%%
     # %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -394,6 +408,23 @@ fn_simulate_tables = function(
         G
     )
     colnames(df_genotypes) = c("ENTRY_UID", df_loci$LOCUS_UID)
+    ### Replace POSIX_DATE_TIME with YEAR, MONTH and DAY columns in the phenotypes and environemnts data table and convert the genotypes matrix into an allele frequency table
+    df_out_phenotypes = data.frame(
+        df_phenotypes[, 2, drop=FALSE], 
+        YEAR=as.numeric(format(as.POSIXlt(df_phenotypes$POSIX_DATE_TIME), format="%Y")),
+        MONTH=as.numeric(format(as.POSIXlt(df_phenotypes$POSIX_DATE_TIME), format="%m")),
+        DAY=as.numeric(format(as.POSIXlt(df_phenotypes$POSIX_DATE_TIME), format="%d")),
+        HOUR=as.numeric(format(as.POSIXlt(df_phenotypes$POSIX_DATE_TIME), format="%H")),
+        df_phenotypes[, -1:-2, drop=FALSE])
+    df_out_environments = data.frame(
+        df_environments[, 2, drop=FALSE], 
+        YEAR=as.numeric(format(as.POSIXlt(df_environments$POSIX_DATE_TIME), format="%Y")),
+        MONTH=as.numeric(format(as.POSIXlt(df_environments$POSIX_DATE_TIME), format="%m")),
+        DAY=as.numeric(format(as.POSIXlt(df_environments$POSIX_DATE_TIME), format="%d")),
+        HOUR=as.numeric(format(as.POSIXlt(df_environments$POSIX_DATE_TIME), format="%H")),
+        df_environments[, -1:-2, drop=FALSE])
+    df_allele_frequencies = data.frame(chr=df_loci$CHROMOSOME, pos=df_loci$POSITION, allele=df_loci$ALLELE, t(G))
+    colnames(df_allele_frequencies) = c("chr", "pos", "allele", df_entries$ENTRY)
     ### Save data tables excluding the UIDs and saving the genotype data as an allele frequency table file (see https://github.com/jeffersonfparil/imputef?tab=readme-ov-file#allele-frequency-table-tsv)
     if (save_data_tables) {
         dir = tempdir()
@@ -404,27 +435,10 @@ fn_simulate_tables = function(
             fname_genotypes=file.path(dir, paste0("genotypes-", id_datetime_rand, ".tsv")),
             fname_data_tables=file.path(dir, paste0("data_tables-", id_datetime_rand, ".xlsx"))
         )
-        ### Replace POSIX_DATE_TIME with YEAR, MONTH and DAY columns
-        df_out_phenotypes = data.frame(
-            df_phenotypes[, 2, drop=FALSE], 
-            YEAR=as.numeric(format(as.POSIXlt(df_phenotypes$POSIX_DATE_TIME), format="%Y")),
-            MONTH=as.numeric(format(as.POSIXlt(df_phenotypes$POSIX_DATE_TIME), format="%m")),
-            DAY=as.numeric(format(as.POSIXlt(df_phenotypes$POSIX_DATE_TIME), format="%d")),
-            HOUR=as.numeric(format(as.POSIXlt(df_phenotypes$POSIX_DATE_TIME), format="%H")),
-            df_phenotypes[, -1:-2, drop=FALSE])
-        df_out_environments = data.frame(
-            df_environments[, 2, drop=FALSE], 
-            YEAR=as.numeric(format(as.POSIXlt(df_environments$POSIX_DATE_TIME), format="%Y")),
-            MONTH=as.numeric(format(as.POSIXlt(df_environments$POSIX_DATE_TIME), format="%m")),
-            DAY=as.numeric(format(as.POSIXlt(df_environments$POSIX_DATE_TIME), format="%d")),
-            HOUR=as.numeric(format(as.POSIXlt(df_environments$POSIX_DATE_TIME), format="%H")),
-            df_environments[, -1:-2, drop=FALSE])
         ### Save phenotypes and environments tables as tab-delimited files
         utils::write.table(x=df_out_phenotypes, file=list_fnames_tables$fname_phenotypes, sep="\t", row.names=FALSE, col.names=TRUE, quote=FALSE)
         utils::write.table(x=df_out_environments, file=list_fnames_tables$fname_environments, sep="\t", row.names=FALSE, col.names=TRUE, quote=FALSE)
         ### Save the genotype data as an allele frequency table file
-        df_allele_frequencies = data.frame(chr=df_loci$CHROMOSOME, pos=df_loci$POSITION, allele=df_loci$ALLELE, t(G))
-        colnames(df_allele_frequencies) = c("chr", "pos", "allele", df_entries$ENTRY)
         utils::write.table(x=df_allele_frequencies, file=list_fnames_tables$fname_genotypes, sep="\t", row.names=FALSE, col.names=TRUE, quote=FALSE)
         ### Save MS Excel file including all three tables in separate sheets
         writexl::write_xlsx(
@@ -446,9 +460,9 @@ fn_simulate_tables = function(
             df_traits=df_traits,
             df_abiotics=df_abiotics,
             df_loci=df_loci,
-            df_phenotypes=df_phenotypes,
-            df_environments=df_environments,
-            df_genotypes=df_genotypes,
+            df_phenotypes=df_out_phenotypes,
+            df_environments=df_out_environments,
+            df_genotypes=df_allele_frequencies,
             list_fnames_tables=list_fnames_tables
         )
     )

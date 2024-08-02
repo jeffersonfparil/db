@@ -349,12 +349,144 @@ test_that("fn_append", {
     unlink("test.sqlite")
 })
 
-test_that("", {
+test_that("fn_initialise_db", {
     set.seed(123)
-
+    list_sim = fn_simulate_tables(
+         n_entries=50,
+         n_dates=3,
+         n_sites=3,
+         n_treatments=3,
+         n_loci=10e3,
+         save_data_tables=TRUE)
+    fname_data_tables = list_sim$list_fnames_tables$fname_data_tables
+    list_df_data_tables = list()
+    for (table_name in c("phenotypes", "environments", "genotypes")) {
+        eval(parse(text=paste0("list_df_data_tables$df_", table_name, 
+             " = as.data.frame(readxl::read_excel(path=fname_data_tables, sheet=table_name))")))
+    }
+    fname_db = "test.sqlite"
+    fn_initialise_db(fname_db=fname_db, list_df_data_tables=list_df_data_tables)
+    database = DBI::dbConnect(drv=RSQLite::SQLite(), dbname=fname_db)
+    df_entries = DBI::dbGetQuery(conn=database, statement="SELECT * FROM entries")
+    df_dates = DBI::dbGetQuery(conn=database, statement="SELECT * FROM dates")
+    df_sites = DBI::dbGetQuery(conn=database, statement="SELECT * FROM sites")
+    df_treatments = DBI::dbGetQuery(conn=database, statement="SELECT * FROM treatments")
+    df_traits = DBI::dbGetQuery(conn=database, statement="SELECT * FROM traits")
+    df_abiotics = DBI::dbGetQuery(conn=database, statement="SELECT * FROM abiotics")
+    df_loci = DBI::dbGetQuery(conn=database, statement="SELECT * FROM loci")
+    df_phenotypes = DBI::dbGetQuery(conn=database, statement="SELECT * FROM phenotypes")
+    df_environments = DBI::dbGetQuery(conn=database, statement="SELECT * FROM environments")
+    df_genotypes = DBI::dbGetQuery(conn=database, statement="SELECT * FROM genotypes")
+    expect_equal(list_sim$df_entries, df_entries[, -1])
+    expect_equal(list_sim$df_dates[, 1:6], df_dates[, c(2,7,3,4,5,6)])
+    expect_equal(list_sim$df_sites[, c(1,2)], df_sites[, c(2,3)])
+    expect_equal(list_sim$df_treatments[, c(1,2)], df_treatments[, c(2,3)])
+    expect_equal(list_sim$df_traits[, c(1,2)], df_traits[, c(2,3)])
+    expect_equal(list_sim$df_abiotics[, c(1,2)], df_abiotics[, c(2,3)])
+    expect_equal(list_sim$df_loci, df_loci[, -1])
+    expect_equal(list_sim$df_phenotypes, df_phenotypes[, colnames(df_phenotypes) %in% colnames(list_sim$df_phenotypes)])
+    expect_equal(list_sim$df_environments, df_environments[, colnames(df_environments) %in% colnames(list_sim$df_environments)])
+    for (i in sample(x=c(4:ncol(list_sim$df_genotypes)), size=10)) {
+        vec_q_from_BLOB = unserialize(connection=as.raw(unlist(df_genotypes$BLOB[i])))
+        vec_q = unlist(list_sim$df_genotypes[, i+3])
+        names(vec_q) = NULL
+        expect_equal(vec_q, vec_q_from_BLOB)
+    }
 })
 
 test_that("", {
     set.seed(123)
-
+    ### Initialise the database
+    fname_db = "test.sqlite"
+    list_fnames_tables = fn_simulate_tables(
+            n_entries=50,
+            n_dates=3,
+            n_sites=3,
+            n_treatments=3,
+            n_loci=10e3,
+            save_data_tables=TRUE)$list_fnames_tables
+    ### Partition the phenotypes data table
+    df = utils::read.delim(list_fnames_tables$fname_phenotypes, header=TRUE)
+    n = nrow(df); p = ncol(df)
+    # vec_idx_columns_HASH_UID_and_required = 1:17
+    vec_idx_columns_HASH_UID_and_required = 1:15
+    df_q1 = droplevels(df[1:floor(n/2),     1:floor(p/2)])
+    df_q2 = droplevels(df[1:floor(n/2),     c(vec_idx_columns_HASH_UID_and_required, (floor(p/2)+1):p)])
+    df_q3 = droplevels(df[(floor(n/2)+1):n, c(vec_idx_columns_HASH_UID_and_required, (floor(p/2)+1):p)])
+    df_q4 = droplevels(df[(floor(n/2)+1):n, 1:floor(p/2)])
+    df_centre = droplevels(df[floor(n*(1/3)):floor(n*(2/3)), c(vec_idx_columns_HASH_UID_and_required, floor(p*(1/3)):floor(p*(2/3)))])
+    ### Populate the data tables list to initialise the database with
+    list_df_data_tables = list()
+    for (table_name in c("phenotypes", "environments", "genotypes")) {
+        if (table_name == "phenotypes") {
+            list_df_data_tables$df_phenotypes = df_q1
+        } else {
+            eval(parse(text=paste0("list_df_data_tables$df_", table_name, 
+                " = as.data.frame(readxl::read_excel(path=list_fnames_tables$fname_data_tables, sheet=table_name))")))
+        }
+    }
+    ### Initialise the phenotypes data table with df_q1 and update with additional traits (df_q2)
+    fn_initialise_db(fname_db=fname_db, list_df_data_tables=list_df_data_tables)
+    fn_update_database(fname_db=fname_db, df=df_q2, table_name="phenotypes", verbose=TRUE)
+    database = DBI::dbConnect(drv=RSQLite::SQLite(), dbname=fname_db)
+    df_phenotypes_from_db = DBI::dbGetQuery(conn=database, statement="SELECT * FROM phenotypes")
+    DBI::dbDisconnect(conn=database)
+    expect_equal(
+        df_phenotypes_from_db[, colnames(df_phenotypes_from_db) %in% colnames(df)],
+        df[1:floor(n/2), ]
+    )
+    ### Initialise the phenotypes data table with df_q1 and update with additional rows (df_q4)
+    fn_initialise_db(fname_db=fname_db, list_df_data_tables=list_df_data_tables)
+    fn_update_database(fname_db=fname_db, df=df_q4, table_name="phenotypes", verbose=TRUE)
+    database = DBI::dbConnect(drv=RSQLite::SQLite(), dbname=fname_db)
+    df_phenotypes_from_db = DBI::dbGetQuery(conn=database, statement="SELECT * FROM phenotypes")
+    DBI::dbDisconnect(conn=database)
+    df_q1_U_q4 = rbind(df_q1, df_q4)
+    expect_equal(
+        df_phenotypes_from_db[, colnames(df_phenotypes_from_db) %in% colnames(df)],
+        df_q1_U_q4
+    )
+    ### Initialise the phenotypes data table with df_q1 and update with additional traits (df_q3)
+    fn_initialise_db(fname_db=fname_db, list_df_data_tables=list_df_data_tables)
+    fn_update_database(fname_db=fname_db, df=df_q3, table_name="phenotypes", verbose=TRUE)
+    database = DBI::dbConnect(drv=RSQLite::SQLite(), dbname=fname_db)
+    df_phenotypes_from_db = DBI::dbGetQuery(conn=database, statement="SELECT * FROM phenotypes")
+    DBI::dbDisconnect(conn=database)
+    df_NA_q2 = data.frame(matrix(NA, nrow=nrow(df_q1), ncol=(ncol(df)-ncol(df_q1))))
+    colnames(df_NA_q2) = colnames(df[, (floor(p/2)+1):p])
+    df_NA_q4 = data.frame(matrix(NA, nrow=nrow(df_q3), ncol=ncol(df_q1)))
+    colnames(df_NA_q4) = colnames(df_q4)
+    df_NA_q4[, 1:15] = df_q4[, 1:15]
+    df_q1_U_q3 = rbind(
+        cbind(df_q1,    df_NA_q2),
+        cbind(df_NA_q4, df_q3[, (15+1):ncol(df_q3)])
+    )
+    expect_equal(
+        df_phenotypes_from_db[, colnames(df_phenotypes_from_db) %in% colnames(df)],
+        df_q1_U_q3
+    )
+    ### Initialise the phenotypes data table with df_q1 and update with some additional rows and traits with some overlap with existing table (df_centre)
+    fn_initialise_db(fname_db=fname_db, list_df_data_tables=list_df_data_tables)
+    fn_update_database(fname_db=fname_db, df=df_centre, table_name="phenotypes", verbose=TRUE)
+    database = DBI::dbConnect(drv=RSQLite::SQLite(), dbname=fname_db)
+    df_phenotypes_from_db = DBI::dbGetQuery(conn=database, statement="SELECT * FROM phenotypes")
+    DBI::dbDisconnect(conn=database)
+    n_ini_rows_NA = floor(n*(1/3)) - 1
+    n_fin_rows_NA = floor(n*(2/3)) - floor(n/2)
+    df_NA_bottom = as.data.frame(matrix(NA, nrow=n_fin_rows_NA, ncol=ncol(df_q1)))
+    colnames(df_NA_bottom) = colnames(df_q1)
+    df_q1_U_centre = rbind(df_q1, df_NA_bottom)
+    for (column_name in colnames(df_centre)[!(colnames(df_centre) %in% colnames(df_q1))]) {
+        # column_name = colnames(df_centre)[!(colnames(df_centre) %in% colnames(df_q1))][1]
+        vec_column_data = c(rep(NA, times=n_ini_rows_NA), eval(parse(text=paste0("df_centre$", column_name))))
+        eval(parse(text=paste0("df_q1_U_centre$", column_name, " = vec_column_data")))
+    }
+    vec_idx_NA_ENTRY = which(is.na(df_q1_U_centre$ENTRY))
+    vec_idx_columns = which(colnames(df_q1_U_centre) %in% colnames(df_centre))
+    df_q1_U_centre[vec_idx_NA_ENTRY, vec_idx_columns] = df_centre[c((nrow(df_centre)-n_fin_rows_NA+1):nrow(df_centre)), ]
+    expect_equal(
+        df_phenotypes_from_db[, colnames(df_phenotypes_from_db) %in% colnames(df)],
+        df_q1_U_centre
+    )
+    unlink(fname_db)
 })
