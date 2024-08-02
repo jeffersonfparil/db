@@ -1431,6 +1431,7 @@ fn_append = function(df, database, table_name, verbose=TRUE) {
 #'          " = as.data.frame(readxl::read_excel(path=fname_data_tables, sheet=table_name))")))
 #' }
 #' fn_initialise_db(fname_db="test.sqlite", list_df_data_tables=list_df_data_tables)
+#' unlink("test.sqlite")
 #' @export
 fn_initialise_db = function(fname_db, list_df_data_tables, verbose=TRUE) {
     ################################################################
@@ -1556,6 +1557,7 @@ fn_initialise_db = function(fname_db, list_df_data_tables, verbose=TRUE) {
 #'      save_data_tables=TRUE)
 #' fn_update_database(fname_db=fname_db, df=list_sim$df_phenotypes, 
 #'      table_name="phenotypes", verbose=TRUE)
+#' unlink("test.sqlite")
 #' @export
 fn_update_database = function(fname_db, df, table_name, verbose=TRUE) {
     ################################################################
@@ -1682,21 +1684,22 @@ fn_update_database = function(fname_db, df, table_name, verbose=TRUE) {
             }
             list_tables = fn_prepare_data_table_and_extract_base_tables(df=df, database=database, table_name=table_name, verbose=verbose)
             ### If all the rows are already present in the existing data table in the database, then we skip appending the associated base tables
-            if (is.null(list_tables) == 0) {break}
-            for (i in 1:nrow(GLOBAL_df_valid_tables())) {
-                # i = 2
-                if (GLOBAL_df_valid_tables()$CLASS[i] != "base") {next}
-                base_table_name = GLOBAL_df_valid_tables()$NAME[i]
-                df_base_table  = list_tables[[paste0("df_", base_table_name)]]
-                if (is.null(df_base_table)) {next}
-                if (nrow(df_base_table) > 0) {
-                    database = fn_append(df=df_base_table, database=database, table_name=base_table_name, verbose=verbose)
-                    if (methods::is(database, "dbError")) {
-                        error = chain(database, methods::new("dbError",
-                            code=000,
-                            message=paste0("Error in fn_update_database(...): error appending '", 
-                            base_table_name, "' base table from '", table_name, "' data table.")))
-                        return(error)
+            if (!is.null(list_tables)) {
+                for (i in 1:nrow(GLOBAL_df_valid_tables())) {
+                    # i = 2
+                    if (GLOBAL_df_valid_tables()$CLASS[i] != "base") {next}
+                    base_table_name = GLOBAL_df_valid_tables()$NAME[i]
+                    df_base_table  = list_tables[[paste0("df_", base_table_name)]]
+                    if (is.null(df_base_table)) {next}
+                    if (nrow(df_base_table) > 0) {
+                        database = fn_append(df=df_base_table, database=database, table_name=base_table_name, verbose=verbose)
+                        if (methods::is(database, "dbError")) {
+                            error = chain(database, methods::new("dbError",
+                                code=000,
+                                message=paste0("Error in fn_update_database(...): error appending '", 
+                                base_table_name, "' base table from '", table_name, "' data table.")))
+                            return(error)
+                        }
                     }
                 }
             }

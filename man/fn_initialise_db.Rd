@@ -37,4 +37,5 @@ for (table_name in c("phenotypes", "environments", "genotypes")) {
          " = as.data.frame(readxl::read_excel(path=fname_data_tables, sheet=table_name))")))
 }
 fn_initialise_db(fname_db="test.sqlite", list_df_data_tables=list_df_data_tables)
+unlink("test.sqlite")
 }

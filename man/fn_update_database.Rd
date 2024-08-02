@@ -51,4 +51,5 @@ list_sim = fn_simulate_tables(
      save_data_tables=TRUE)
 fn_update_database(fname_db=fname_db, df=list_sim$df_phenotypes, 
      table_name="phenotypes", verbose=TRUE)
+unlink("test.sqlite")
 }
