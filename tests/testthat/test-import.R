@@ -394,7 +394,7 @@ test_that("fn_initialise_db", {
     }
 })
 
-test_that("", {
+test_that("fn_update_database", {
     set.seed(123)
     ### Initialise the database
     fname_db = "test.sqlite"
