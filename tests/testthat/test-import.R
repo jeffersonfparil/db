@@ -20,6 +20,7 @@ test_that("fn_check_import_inputs", {
          n_loci=10e3,
          save_data_tables=TRUE)$list_fnames_tables
     df = utils::read.delim(list_fnames_tables$fname_phenotypes, header=TRUE)
+    df = fn_remove_quotes_and_newline_characters_in_data(df=df)
     database = DBI::dbConnect(drv=RSQLite::SQLite(), dbname="test.sqlite")
     err = methods::new("dbError", code=000, message="!!!Error type!!!!")
     df_empty = df[df$ENTRY_UID==0, , drop=FALSE]
@@ -53,6 +54,7 @@ test_that("fn_remove_quotes_and_newline_characters_in_data", {
          n_loci=10e3,
          save_data_tables=TRUE)$list_fnames_tables
     df = utils::read.delim(list_fnames_tables$fname_phenotypes, header=TRUE)
+    df = fn_remove_quotes_and_newline_characters_in_data(df=df)
     df[1,1] = paste0("'", df[1,1], "'")
     df[2,2] = paste0('"', df[2,2], '"')
     df[3,3] = paste0(df[3,3], "\n")
@@ -74,6 +76,7 @@ test_that("fn_add_POSIX_time", {
          n_loci=10e3,
          save_data_tables=TRUE)$list_fnames_tables
     df = utils::read.delim(list_fnames_tables$fname_phenotypes, header=TRUE)
+    df = fn_remove_quotes_and_newline_characters_in_data(df=df)
     vec_POSIX_DATE_TIME = df$POSIX_DATE_TIME
     df = df[, !(colnames(df) %in% "POSIX_DATE_TIME")]
     database = DBI::dbConnect(drv=RSQLite::SQLite(), dbname="test.sqlite")
@@ -93,6 +96,7 @@ test_that("fn_rename_columns_and_remove_duplicate_columns", {
          n_loci=10e3,
          save_data_tables=TRUE)$list_fnames_tables
     df = utils::read.delim(list_fnames_tables$fname_phenotypes, header=TRUE)
+    df = fn_remove_quotes_and_newline_characters_in_data(df=df)
     colnames(df) = tolower(colnames(df))
     database = DBI::dbConnect(drv=RSQLite::SQLite(), dbname="test.sqlite")
     df = fn_rename_columns_and_remove_duplicate_columns(df=df, database=database, table_name="phenotypes", verbose=TRUE)
@@ -111,6 +115,7 @@ test_that("fn_add_hash_UID_and_remove_duplicate_rows", {
          n_loci=10e3,
          save_data_tables=TRUE)$list_fnames_tables
     df = utils::read.delim(list_fnames_tables$fname_phenotypes, header=TRUE)
+    df = fn_remove_quotes_and_newline_characters_in_data(df=df)
     df = rbind(df[1, ], df)
     database = DBI::dbConnect(drv=RSQLite::SQLite(), dbname="test.sqlite")
     df_with_hash_UID = fn_add_hash_UID_and_remove_duplicate_rows(df=df, database=database, table_name="phenotypes", verbose=TRUE)
@@ -130,6 +135,7 @@ test_that("fn_convert_allele_frequency_table_into_blobs_and_dfs", {
          n_loci=10e3,
          save_data_tables=TRUE)$list_fnames_tables
     df = utils::read.delim(list_fnames_tables$fname_genotypes, header=TRUE)
+    df = fn_remove_quotes_and_newline_characters_in_data(df=df)
     database = DBI::dbConnect(drv=RSQLite::SQLite(), dbname="test.sqlite")
     list_df_genotypes_df_loci_df_entries = fn_convert_allele_frequency_table_into_blobs_and_dfs(df=df, database=database, table_name="genotypes", verbose=TRUE)
     expect_equal(length(list_df_genotypes_df_loci_df_entries), 3)
@@ -152,6 +158,7 @@ test_that("fn_prepare_data_table_and_extract_base_tables", {
          n_loci=10e3,
          save_data_tables=TRUE)$list_fnames_tables
     df_phenotypes = utils::read.delim(list_fnames_tables$fname_phenotypes, header=TRUE)
+    df_phenotypes = fn_remove_quotes_and_newline_characters_in_data(df=df_phenotypes)
     database = DBI::dbConnect(drv=RSQLite::SQLite(), dbname="test.sqlite")
     list_df_data_and_base_tables = fn_prepare_data_table_and_extract_base_tables(df=df_phenotypes, database=database, table_name="phenotypes", verbose=TRUE)
     expect_equal(names(list_df_data_and_base_tables), c("df_possibly_modified", "df_entries", "df_dates", "df_sites", "df_treatments", "df_traits", "df_abiotics", "df_loci"))
@@ -164,6 +171,7 @@ test_that("fn_prepare_data_table_and_extract_base_tables", {
     expect_equal(is.null(list_df_data_and_base_tables$df_abiotics), TRUE)
     expect_equal(is.null(list_df_data_and_base_tables$df_loci), TRUE)
     df_genotypes = utils::read.delim(list_fnames_tables$fname_genotypes, header=TRUE)
+    df_genotypes = fn_remove_quotes_and_newline_characters_in_data(df=df_genotypes)
     list_df_data_and_base_tables = fn_prepare_data_table_and_extract_base_tables(df=df_genotypes, database=database, table_name="genotypes", verbose=TRUE)
     expect_equal(names(list_df_data_and_base_tables), c("df_possibly_modified", "df_entries", "df_dates", "df_sites", "df_treatments", "df_traits", "df_abiotics", "df_loci"))
     expect_equal(dim(list_df_data_and_base_tables$df_possibly_modified), c(ncol(df_genotypes)-3, 2))
@@ -192,6 +200,8 @@ test_that("list_set_classification_of_rows", {
          n_loci=10e3,
          save_data_tables=TRUE)$list_fnames_tables
     df = utils::read.delim(list_fnames_tables$fname_phenotypes, header=TRUE)
+    ### Remove quotes and newline characters in the data frame
+    df = fn_remove_quotes_and_newline_characters_in_data(df=df)
     ### If the table does not exist in the database yet
     database = DBI::dbConnect(drv=RSQLite::SQLite(), dbname="test.sqlite")
     list_set_classification_of_rows = fn_set_classification_of_rows(df=df, database=database, table_name="phenotypes", verbose=TRUE)
@@ -228,6 +238,8 @@ test_that("list_set_classification_of_columns", {
          n_loci=10e3,
          save_data_tables=TRUE)$list_fnames_tables
     df = utils::read.delim(list_fnames_tables$fname_phenotypes, header=TRUE)
+    ### Remove quotes and newline characters in the data frame
+    df = fn_remove_quotes_and_newline_characters_in_data(df=df)
     ### if the table does not exist in the database yet
     database = DBI::dbConnect(drv=RSQLite::SQLite(), dbname="test.sqlite")
     list_set_classification_of_columns = fn_set_classification_of_columns(df=df, database=database, table_name="phenotypes", verbose=TRUE)
@@ -264,6 +276,8 @@ test_that("fn_add_new_columns", {
          n_loci=10e3,
          save_data_tables=TRUE)$list_fnames_tables
     df = utils::read.delim(list_fnames_tables$fname_phenotypes, header=TRUE)
+    ### Remove quotes and newline characters in the data frame
+    df = fn_remove_quotes_and_newline_characters_in_data(df=df)
     database = DBI::dbConnect(drv=RSQLite::SQLite(), dbname="test.sqlite")
     ### Prepare the tables
     list_df_data_and_base_tables = fn_prepare_data_table_and_extract_base_tables(df=df, 
@@ -290,6 +304,8 @@ test_that("fn_append", {
          n_loci=10e3,
          save_data_tables=TRUE)$list_fnames_tables
     df = utils::read.delim(list_fnames_tables$fname_phenotypes, header=TRUE)
+    ### Remove quotes and newline characters in the data frame
+    df = fn_remove_quotes_and_newline_characters_in_data(df=df)
     database = DBI::dbConnect(drv=RSQLite::SQLite(), dbname="test.sqlite")
     ### Prepare the tables
     list_df_data_and_base_tables = fn_prepare_data_table_and_extract_base_tables(df=df, 
@@ -361,8 +377,10 @@ test_that("fn_initialise_db", {
     fname_data_tables = list_sim$list_fnames_tables$fname_data_tables
     list_df_data_tables = list()
     for (table_name in c("phenotypes", "environments", "genotypes")) {
-        eval(parse(text=paste0("list_df_data_tables$df_", table_name, 
-             " = as.data.frame(readxl::read_excel(path=fname_data_tables, sheet=table_name))")))
+        df = as.data.frame(readxl::read_excel(path=fname_data_tables, sheet=table_name))
+        ### Remove quotes and newline characters in the data frame
+        df = fn_remove_quotes_and_newline_characters_in_data(df=df)
+        eval(parse(text=paste0("list_df_data_tables$df_", table_name, " = df")))
     }
     fname_db = "test.sqlite"
     fn_initialise_db(fname_db=fname_db, list_df_data_tables=list_df_data_tables)
@@ -408,6 +426,8 @@ test_that("fn_update_database", {
     ### Partition the phenotypes data table
     df = utils::read.delim(list_fnames_tables$fname_phenotypes, header=TRUE)
     n = nrow(df); p = ncol(df)
+    ### Remove quotes and newline characters in the data frame
+    df = fn_remove_quotes_and_newline_characters_in_data(df=df)
     # vec_idx_columns_HASH_UID_and_required = 1:17
     vec_idx_columns_HASH_UID_and_required = 1:15
     df_q1 = droplevels(df[1:floor(n/2),     1:floor(p/2)])

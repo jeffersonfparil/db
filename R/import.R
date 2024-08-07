@@ -1515,6 +1515,21 @@ fn_initialise_db = function(fname_db, list_df_data_tables, verbose=TRUE) {
             print(DBI::dbGetQuery(conn=database, statement="PRAGMA TABLE_LIST"))
         }
     }
+    ### Index the tables for faster queries
+    for (table_name in GLOBAL_df_valid_tables()$NAME[-1]) {
+        # table_name = GLOBAL_df_valid_tables()$NAME[1]
+        table_name_prefix = fn_define_hash_and_UID_prefix(table_name=table_name)
+        ### Skip if the table has already been indexed
+        if (nrow(DBI::dbGetQuery(conn=database, statement=paste0("PRAGMA INDEX_LIST(", table_name, ")"))) > 0) {next}
+        if (verbose) {
+            print(paste0("Creating unique indexes for the ", table_name_prefix, "_UID column in the ", table_name, " table."))
+        }
+        if (table_name != "genotypes") {
+            DBI::dbExecute(conn=database, statement=paste0("CREATE UNIQUE INDEX IDX_", table_name_prefix, " ON ", table_name, "(", table_name_prefix, "_UID)"))
+        } else {
+            DBI::dbExecute(conn=database, statement=paste0("CREATE UNIQUE INDEX IDX_", table_name_prefix, " ON ", table_name, "(ENTRY_UID)"))
+        }
+    }
     if (verbose) {
         print(DBI::dbGetQuery(conn=database, statement="PRAGMA TABLE_LIST"))
     }

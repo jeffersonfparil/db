@@ -2,6 +2,57 @@
 ### Data exportation functions ###
 ##################################
 
+#' Check the validity of exportation function inputs
+#' @param database an open SQLite database connection
+#' @param table_name name of the (entries, dates, sites, treatments, traits, abiotics, 
+#'  and loci) or data (phenotypes, environments and genotypes) table represented by df
+#' @param list_filters list of named vectors where each vector refers to a valid 
+#'  column name in the specified table with the values to be selected.
+#'  A numeric column is always specified as a range of values, i.e. minimum and maximum values,
+#'  but these can be the same value, and the same numeric column can be included multiple times with 
+#'  various ranges which is equivalent to using a vector of values or ranges of values to filter.
+#'  A text column is always specified by a vector of strings. (Default=NULL)
+#' @param vec_columns_to_show vector of column names to include, where "*" means all 
+#'  columns in the table. (Default="*")
+#' @param unique_column_name column name which we are targetting to be unique after filtering. 
+#'  Note that we do not explicitly test if the values in this column are actually unique 
+#'  just that this column exists. (Default=NULL)
+#' @returns
+#'  - Ok:
+#'      NULL
+#'  - Err: dbError
+#' @examples
+#' list_fnames_tables = fn_simulate_tables(
+#'      n_entries=50,
+#'      n_dates=3,
+#'      n_sites=3,
+#'      n_treatments=3,
+#'      n_loci=10e3,
+#'      save_data_tables=TRUE)$list_fnames_tables
+#' list_df_data_tables = list(
+#'     df_phenotypes=utils::read.delim(list_fnames_tables$fname_phenotypes, 
+#'          header=TRUE),
+#'     df_environments=utils::read.delim(list_fnames_tables$fname_environments, 
+#'          header=TRUE),
+#'     df_genotypes=utils::read.delim(list_fnames_tables$fname_genotypes, 
+#'          header=TRUE, check.names=FALSE))
+#' fn_initialise_db(fname_db="test.sqlite", 
+#'          list_df_data_tables=list_df_data_tables, verbose=TRUE)
+#' database = DBI::dbConnect(drv=RSQLite::SQLite(), dbname="test.sqlite")
+#' list_filters=list(
+#'     REPLICATION="rep_1",
+#'     TREATMENT=sample(unique(list_df_data_tables$df_phenotypes$TREATMENT), 
+#'         size=min(c(2, length(unique(list_df_data_tables$df_phenotypes$TREATMENT)))))
+#' )
+#' null_error = fn_check_export_inputs(database=database, table_name="phenotypes",
+#'      list_filters=list_filters, vec_columns_to_show="*", unique_column_name="ENTRY")
+#' non_null_error_1 = fn_check_export_inputs(database=database, 
+#'      table_name="non_existent_table", list_filters=list_filters)
+#' non_null_error_2 = fn_check_export_inputs(database=database, table_name="entries",
+#'      vec_columns_to_show="non_existent_column")
+#' DBI::dbDisconnect(database)
+#' unlink("test.sqlite")
+#' @export
 fn_check_export_inputs = function(database, table_name, list_filters=NULL, vec_columns_to_show="*", unique_column_name=NULL) {
     ################################################################
     ### TEST
@@ -81,10 +132,13 @@ fn_check_export_inputs = function(database, table_name, list_filters=NULL, vec_c
         methods::is(database, "SQLiteConnection") &&
         bool_at_least_one_expected_table_present &&
         (sum(GLOBAL_df_valid_tables()$NAME == table_name) == 1) &&
-        (sum(vec_existing_table_names == table_name) == 1) &&
-        !is.null(list_filters)
+        (sum(vec_existing_table_names == table_name) == 1)
     ) {
-        vec_requested_column_names = names(list_filters)
+        if (!is.null(list_filters)) {
+            vec_requested_column_names = names(list_filters)
+        } else {
+            vec_requested_column_names = c()
+        }
         if ((length(vec_columns_to_show) == 1) && (vec_columns_to_show != "*")) {
             vec_requested_column_names = c(vec_requested_column_names, vec_columns_to_show)
         }
@@ -114,10 +168,81 @@ fn_check_export_inputs = function(database, table_name, list_filters=NULL, vec_c
     return(error)
 }
 
-### Query and join tables along common column/s
-### Numerics are always a range but min and max can be the same value and the same numeric column can be included with 
-### different or the same ranges which is equivalent to using a vector of value or range of values to filter
-### Strings are always a vector of strings
+#' Query and join tables along common column/s
+#' @param database an open SQLite database connection
+#' @param list_tables_and_filters a list of lists, where each list corresponds to,
+#'   and named after a table in the database, they contain:
+#'      - key_names: a vector of column names corresponding to the identifying columns 
+#'          where at least one column is common across all the listed tables
+#'      - column_names: a vector of column names to be included in the output table, 
+#'          where "*" means all columns in the table
+#'      - list_filters: a list of named vectors where each vector refers to a valid 
+#'          column name in the specified table with the values to be selected.
+#'          A numeric column is always specified as a range of values, i.e. minimum and 
+#'          maximum values, but these can be the same value, and the same numeric column 
+#'          can be included multiple times with various ranges which is equivalent to 
+#'          using a vector of values or ranges of values to filter. 
+#'          A text column is always specified by a vector of strings.
+#' @param unique_column_name a common column name across all included tables in 
+#'  `list_tables_and_filters` which we are requiring to be unique after filtering. 
+#'  (Default=NULL)
+#' @param verbose Show messages? (Default=TRUE)
+#' @returns
+#'  - Ok:
+#'      merged data frame including all the columns requested per table, and
+#'          all the rows passing the filtering requirements listed in
+#'          `list_tables_and_filters`.
+#'  - Err: dbError
+#' @examples
+#' list_fnames_tables = fn_simulate_tables(
+#'      n_entries=50,
+#'      n_dates=3,
+#'      n_sites=3,
+#'      n_treatments=3,
+#'      n_loci=10e3,
+#'      save_data_tables=TRUE)$list_fnames_tables
+#' list_df_data_tables = list(
+#'     df_phenotypes=utils::read.delim(list_fnames_tables$fname_phenotypes, 
+#'          header=TRUE),
+#'     df_environments=utils::read.delim(list_fnames_tables$fname_environments, 
+#'          header=TRUE),
+#'     df_genotypes=utils::read.delim(list_fnames_tables$fname_genotypes, 
+#'          header=TRUE, check.names=FALSE))
+#' fn_initialise_db(fname_db="test.sqlite", 
+#'          list_df_data_tables=list_df_data_tables, verbose=TRUE)
+#' database = DBI::dbConnect(drv=RSQLite::SQLite(), dbname="test.sqlite")
+#' list_tables_and_filters = list(
+#'     entries=list(
+#'         key_names=c("ENTRY_UID"), 
+#'         column_names=c("*"),
+#'         list_filters=list(
+#'             ENTRY=sample(unique(list_df_data_tables$df_phenotypes$ENTRY), 
+#'                  size=min(c(10, 
+#'                  length(unique(list_df_data_tables$df_phenotypes$ENTRY))))),
+#'             POPULATION=list_df_data_tables$df_phenotypes$POPULATION[1])
+#'     ),
+#'     phenotypes=list(
+#'         key_names=c("ENTRY_UID", "REPLICATION", "TREATMENT", "SITE", "FVI_YEAR_SEASON"),
+#'         column_names=c("*"),
+#'         list_filters=list(
+#'             REPLICATION="rep_1",
+#'             SITE=list_df_data_tables$df_phenotypes$SITE[1],
+#'             POSIX_DATE_TIME=list_df_data_tables$df_phenotypes$POSIX_DATE_TIME[1],
+#'             TREATMENT=sample(unique(list_df_data_tables$df_phenotypes$TREATMENT), 
+#'                  size=min(c(1, 
+#'                  length(unique(list_df_data_tables$df_phenotypes$TREATMENT))))))
+#'     ),
+#'      genotypes=list(
+#'         key_names=c("ENTRY_UID"),
+#'         column_names=c("*"),
+#'         list_filters=NULL
+#'     )
+#' )
+#' df_query = fn_query_and_left_join_tables(database=database, 
+#'      list_tables_and_filters=list_tables_and_filters, unique_column_name="ENTRY_UID")
+#' DBI::dbDisconnect(database)
+#' unlink("test.sqlite")
+#' @export
 fn_query_and_left_join_tables = function(database, list_tables_and_filters, unique_column_name=NULL, verbose=TRUE) {
     ################################################################
     ### TEST
