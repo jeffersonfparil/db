@@ -426,6 +426,7 @@ fn_query_and_left_join_tables = function(database, list_tables_and_filters, uniq
     return(df_query)
 }
 
+# Assess the number of unique elements in each column of a table after an optional filtering
 fn_assess_df_subsets = function(database, table_name, list_filters=NULL, vec_columns_levels_to_count=NULL, verbose=TRUE) {
     ################################################################
     ### TEST
