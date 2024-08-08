@@ -10,7 +10,11 @@ fn_initialise_db(fname_db, list_df_data_tables, verbose = TRUE)
 \item{fname_db}{name of the SQLite database file}
 
 \item{list_df_data_tables}{list containing the 3 data tables as data frames,
-i.e. 'df_phenotypes', 'df_environments' and 'df_genotypes' data tables}
+i.e. 'df_phenotypes', 'df_environments' and 'df_genotypes' data tables.
+Note that 'df_genotypes' is a data frame corresponding to an allele frequency table, where
+the first 3 columns refer to the CHROMOSOME, POSITION_PER_CHROMOSOME, and ALLELE,
+followed by the allele frequencies per sample, entry or pool with their corresponding
+entry names as the column names.}
 
 \item{verbose}{Show messages? (Default=TRUE)}
 }

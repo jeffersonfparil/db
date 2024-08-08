@@ -86,7 +86,7 @@ test_that("fn_add_POSIX_time", {
     unlink("test.sqlite")
 })
 
-test_that("fn_rename_columns_and_remove_duplicate_columns", {
+test_that("fn_rename_columns_remove_duplicate_columns_and_check_column_type_mismatch", {
     set.seed(123)
     list_fnames_tables = fn_simulate_tables(
          n_entries=50,
@@ -99,8 +99,31 @@ test_that("fn_rename_columns_and_remove_duplicate_columns", {
     df = fn_remove_quotes_and_newline_characters_in_data(df=df)
     colnames(df) = tolower(colnames(df))
     database = DBI::dbConnect(drv=RSQLite::SQLite(), dbname="test.sqlite")
-    df = fn_rename_columns_and_remove_duplicate_columns(df=df, database=database, table_name="phenotypes", verbose=TRUE)
+    df = fn_rename_columns_remove_duplicate_columns_and_check_column_type_mismatch(df=df, database=database, table_name="phenotypes", verbose=TRUE)
     expect_equal(sum(colnames(df) == toupper(colnames(df))), ncol(df))
+
+
+    ### Test column type mismatch
+    df = utils::read.delim(list_fnames_tables$fname_phenotypes, header=TRUE)
+    df = fn_remove_quotes_and_newline_characters_in_data(df=df)
+    colnames(df) = toupper(colnames(df))
+    n = nrow(df); p = ncol(df)
+    df_q1 = droplevels(df[1:floor(n/2),     1:floor(p/2)])
+    df_q4 = droplevels(df[(floor(n/2)+1):n, 1:floor(p/2)])
+    ### Initialise with df_q1
+    DBI::dbWriteTable(conn=database, name="phenotypes", value=df_q1)
+    ### In df_q4, convert a value in a numeric column into a string to simulate error in the input table
+    vec_idx = c()
+    for (j in 1:ncol(df_q4)) {
+        if (is.numeric(df_q4[, j])) {
+            vec_idx = c(vec_idx, j)
+        }
+    }
+    str(df_q4)
+    df_q4[1, c(head(vec_idx,1), tail(vec_idx,1))] = "Oooppsiieee!"
+    str(df_q4)
+    non_null_error = fn_rename_columns_remove_duplicate_columns_and_check_column_type_mismatch(df=df_q4, database=database, table_name="phenotypes", verbose=TRUE)
+    expect_equal(methods::is(non_null_error, "dbError"), TRUE)
     DBI::dbDisconnect(database)
     unlink("test.sqlite")
 })
@@ -134,16 +157,16 @@ test_that("fn_convert_allele_frequency_table_into_blobs_and_dfs", {
          n_treatments=3,
          n_loci=10e3,
          save_data_tables=TRUE)$list_fnames_tables
-    df = utils::read.delim(list_fnames_tables$fname_genotypes, header=TRUE)
-    df = fn_remove_quotes_and_newline_characters_in_data(df=df)
+    df_allele_frequency_table = utils::read.delim(list_fnames_tables$fname_genotypes, header=TRUE)
+    df_allele_frequency_table = fn_remove_quotes_and_newline_characters_in_data(df=df_allele_frequency_table)
     database = DBI::dbConnect(drv=RSQLite::SQLite(), dbname="test.sqlite")
-    list_df_genotypes_df_loci_df_entries = fn_convert_allele_frequency_table_into_blobs_and_dfs(df=df, database=database, table_name="genotypes", verbose=TRUE)
+    list_df_genotypes_df_loci_df_entries = fn_convert_allele_frequency_table_into_blobs_and_dfs(df_allele_frequency_table=df_allele_frequency_table, database=database, table_name="genotypes", verbose=TRUE)
     expect_equal(length(list_df_genotypes_df_loci_df_entries), 3)
-    for (i in sample(4:ncol(df), size=10)) {
-        expect_equal(length(list_df_genotypes_df_loci_df_entries$df_genotypes$BLOB[[i-3]]), length(serialize(object=df[, i], connection=NULL)))
+    for (i in sample(4:ncol(df_allele_frequency_table), size=10)) {
+        expect_equal(length(list_df_genotypes_df_loci_df_entries$df_genotypes$BLOB[[i-3]]), length(serialize(object=df_allele_frequency_table[, i], connection=NULL)))
     }
-    expect_equal(nrow(list_df_genotypes_df_loci_df_entries$df_loci), nrow(df))
-    expect_equal(nrow(list_df_genotypes_df_loci_df_entries$df_entries), ncol(df)-3)
+    expect_equal(nrow(list_df_genotypes_df_loci_df_entries$df_loci), nrow(df_allele_frequency_table))
+    expect_equal(nrow(list_df_genotypes_df_loci_df_entries$df_entries), ncol(df_allele_frequency_table)-3)
     DBI::dbDisconnect(database)
     unlink("test.sqlite")
 })

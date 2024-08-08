@@ -10,10 +10,11 @@ test_that("fn_check_export_inputs", {
          n_treatments=3,
          n_loci=10e3,
          save_data_tables=TRUE)$list_fnames_tables
+    df_allele_frequency_table = utils::read.delim(list_fnames_tables$fname_genotypes, header=TRUE, check.names=FALSE)
     list_df_data_tables = list(
         df_phenotypes=utils::read.delim(list_fnames_tables$fname_phenotypes, header=TRUE),
         df_environments=utils::read.delim(list_fnames_tables$fname_environments, header=TRUE),
-        df_genotypes=utils::read.delim(list_fnames_tables$fname_genotypes, header=TRUE, check.names=FALSE))
+        df_genotypes=df_allele_frequency_table)
     fn_initialise_db(fname_db="test.sqlite", list_df_data_tables=list_df_data_tables, verbose=TRUE)
     database = DBI::dbConnect(drv=RSQLite::SQLite(), dbname="test.sqlite")
     list_filters=list(
@@ -39,13 +40,13 @@ test_that("fn_query_and_left_join_tables", {
         n_treatments=3,
         n_loci=10e3,
         save_data_tables=TRUE)$list_fnames_tables
+    df_allele_frequency_table = utils::read.delim(list_fnames_tables$fname_genotypes, header=TRUE, check.names=FALSE)
     list_df_data_tables = list(
         df_phenotypes=utils::read.delim(list_fnames_tables$fname_phenotypes, 
             header=TRUE),
         df_environments=utils::read.delim(list_fnames_tables$fname_environments, 
             header=TRUE),
-        df_genotypes=utils::read.delim(list_fnames_tables$fname_genotypes, 
-            header=TRUE, check.names=FALSE))
+        df_genotypes=df_allele_frequency_table)
     fn_initialise_db(fname_db="test.sqlite", 
             list_df_data_tables=list_df_data_tables, verbose=TRUE)
     database = DBI::dbConnect(drv=RSQLite::SQLite(), dbname="test.sqlite")
@@ -82,8 +83,57 @@ test_that("fn_query_and_left_join_tables", {
 
 test_that("fn_assess_df_subsets", {
     set.seed(123)
+    list_fnames_tables = fn_simulate_tables(
+        n_entries=50,
+        n_dates=3,
+        n_sites=3,
+        n_treatments=3,
+        n_loci=10e3,
+        save_data_tables=TRUE)$list_fnames_tables
+    fname_db = "test.sqlite"
+    df_allele_frequency_table = utils::read.delim(list_fnames_tables$fname_genotypes, header=TRUE, check.names=FALSE)
+    list_df_data_tables = list(
+        df_phenotypes=utils::read.delim(list_fnames_tables$fname_phenotypes, header=TRUE),
+        df_environments=utils::read.delim(list_fnames_tables$fname_environments, header=TRUE),
+        df_genotypes=df_allele_frequency_table)
+    fn_initialise_db(fname_db=fname_db, list_df_data_tables=list_df_data_tables, verbose=TRUE)
+    database = DBI::dbConnect(drv=RSQLite::SQLite(), dbname=fname_db)
+    table_name = "phenotypes"
+    list_filters=list(
+                REPLICATION="*",
+                MONTH=c(1, 12),
+                TREATMENT=sample(unique(list_df_data_tables$df_phenotypes$TREATMENT), size=min(c(2, length(unique(list_df_data_tables$df_phenotypes$TREATMENT)))))
+                )
+    list_counts = fn_assess_df_subsets(database=database, table_name=table_name, list_filters=list_filters, vec_column_names_to_count=NULL, verbose=TRUE)
+    expect_equal(
+        nrow(list_counts$df_all_possible_combinations) * length(GLOBAL_list_required_colnames_per_table()$phenotypes), 
+        length(list_counts$list_per_combination)
+    )
+    DBI::dbDisconnect(database)
+    unlink("test.sqlite")
 })
 
 test_that("fn_deserialise_genotype_data", {
     set.seed(123)
+    list_fnames_tables = fn_simulate_tables(
+         n_entries=50,
+         n_dates=3,
+         n_sites=3,
+         n_treatments=3,
+         n_loci=10e3,
+         save_data_tables=TRUE)$list_fnames_tables
+    fname_db = "test.sqlite"
+    df_allele_frequency_table = utils::read.delim(list_fnames_tables$fname_genotypes, header=TRUE, check.names=FALSE)
+    list_df_data_tables = list(
+        df_phenotypes=utils::read.delim(list_fnames_tables$fname_phenotypes, header=TRUE),
+        df_environments=utils::read.delim(list_fnames_tables$fname_environments, header=TRUE),
+        df_genotypes=df_allele_frequency_table)
+    fn_initialise_db(fname_db=fname_db, list_df_data_tables=list_df_data_tables, verbose=TRUE)
+    database = DBI::dbConnect(drv=RSQLite::SQLite(), dbname=fname_db)
+    df_genotypes = DBI::dbGetQuery(conn=database, statement="SELECT * FROM genotypes")
+    df_allele_frequency_table_SERDE = fn_deserialise_genotype_data(database=database, df_genotypes=df_genotypes, verbose=TRUE)
+    colnames(df_allele_frequency_table_SERDE)[1:3] = colname(df_allele_frequency_table)[1:3]
+    expect_equal(df_allele_frequency_table_SERDE, df_allele_frequency_table)
+    DBI::dbDisconnect(database)
+    unlink("test.sqlite")
 })

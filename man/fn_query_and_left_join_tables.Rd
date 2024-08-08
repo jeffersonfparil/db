@@ -54,13 +54,15 @@ list_fnames_tables = fn_simulate_tables(
      n_treatments=3,
      n_loci=10e3,
      save_data_tables=TRUE)$list_fnames_tables
+df_allele_frequency_table = utils::read.delim(
+         list_fnames_tables$fname_genotypes, 
+         header=TRUE, check.names=FALSE)
 list_df_data_tables = list(
     df_phenotypes=utils::read.delim(list_fnames_tables$fname_phenotypes, 
          header=TRUE),
     df_environments=utils::read.delim(list_fnames_tables$fname_environments, 
          header=TRUE),
-    df_genotypes=utils::read.delim(list_fnames_tables$fname_genotypes, 
-         header=TRUE, check.names=FALSE))
+    df_genotypes=df_allele_frequency_table)
 fn_initialise_db(fname_db="test.sqlite", 
          list_df_data_tables=list_df_data_tables, verbose=TRUE)
 database = DBI::dbConnect(drv=RSQLite::SQLite(), dbname="test.sqlite")

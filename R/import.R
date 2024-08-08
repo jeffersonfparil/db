@@ -368,7 +368,8 @@ fn_add_POSIX_time = function(df, database, table_name, bool_add_FVI_year_season=
     return(df)
 }
 
-#' Set all column names into uppercase and remove duplicate column names
+#' Set all column names into uppercase, remove duplicate column names, and 
+#' check for mismatches in column types between existing and incoming tables
 #' @param df data frame representing a base (entries, dates, sites, treatments, traits, abiotics, 
 #'  and loci) or data (phenotypes, environments and genotypes) table
 #' @param database an open SQLite database connection
@@ -388,24 +389,60 @@ fn_add_POSIX_time = function(df, database, table_name, bool_add_FVI_year_season=
 #'      save_data_tables=TRUE)$list_fnames_tables
 #' df = utils::read.delim(list_fnames_tables$fname_phenotypes, header=TRUE)
 #' database = DBI::dbConnect(drv=RSQLite::SQLite(), dbname="test.sqlite")
-#' df = fn_rename_columns_and_remove_duplicate_columns(df=df, database=database, 
-#'      table_name="phenotypes", verbose=TRUE)
+#' df = fn_rename_columns_remove_duplicate_columns_and_check_column_type_mismatch(df=df, 
+#'      database=database, table_name="phenotypes", verbose=TRUE)
 #' DBI::dbDisconnect(database)
 #' unlink("test.sqlite")
 #' @export
-fn_rename_columns_and_remove_duplicate_columns = function(df, database, table_name, verbose=TRUE) {
+fn_rename_columns_remove_duplicate_columns_and_check_column_type_mismatch = function(
+    df, database, table_name, verbose=TRUE
+) {
     ################################################################
     ### TEST
-    # list_fnames_tables = fn_simulate_tables(save_data_tables=TRUE)$list_fnames_tables
+    # list_fnames_tables = fn_simulate_tables(n_dates=3, n_sites=3, n_treatments=3, save_data_tables=TRUE)$list_fnames_tables
     # df = utils::read.delim(list_fnames_tables$fname_environments, header=TRUE)
     # database = DBI::dbConnect(drv=RSQLite::SQLite(), dbname="test.sqlite")
     # table_name = "environments"
     # verbose = TRUE
+    # # ### Test column type mismatch
+    # # list_fnames_tables = fn_simulate_tables(
+    # #     n_entries=50,
+    # #     n_dates=3,
+    # #     n_sites=3,
+    # #     n_treatments=3,
+    # #     n_loci=10e3,
+    # #     save_data_tables=TRUE)$list_fnames_tables
+    # # df = utils::read.delim(list_fnames_tables$fname_phenotypes, header=TRUE)
+    # # ### Remove quotes and newline characters in the data frame
+    # # df = fn_remove_quotes_and_newline_characters_in_data(df=df)
+    # # database = DBI::dbConnect(drv=RSQLite::SQLite(), dbname="test.sqlite")
+    # # ### Prepare the tables
+    # # list_df_data_and_base_tables = fn_prepare_data_table_and_extract_base_tables(df=df, database=database, table_name="phenotypes", verbose=TRUE)
+    # # df = list_df_data_and_base_tables$df_possibly_modified
+    # # n = nrow(df); p = ncol(df)
+    # # df_q1 = droplevels(df[1:floor(n/2),     1:floor(p/2)])
+    # # df_q4 = droplevels(df[(floor(n/2)+1):n, 1:floor(p/2)])
+    # # ### Initialise with df_q1
+    # # database = DBI::dbConnect(drv=RSQLite::SQLite(), dbname="test.sqlite")
+    # # DBI::dbWriteTable(conn=database, name="phenotypes", value=df_q1)
+    # # ### In df_q4, convert a value in a numeric column into a string to simulate error in the input table
+    # # vec_idx = c()
+    # # for (j in 1:ncol(df_q4)) {
+    # #     if (is.numeric(df_q4[, j])) {
+    # #         vec_idx = c(vec_idx, j)
+    # #     }
+    # # }
+    # # df_q4[1, vec_idx[1]] = "Oooppsiieee!"
+    # # #### Input
+    # # df = df_q4
+    # # database = database
+    # # table_name = "phenotypes"
+    # # verbose = TRUE
     ################################################################
     ### Check inputs
     error = fn_check_import_inputs(df=df, database=database, table_name=table_name)
     if (!is.null(error)) {
-        error@message = gsub("FUNCTION_NAME", "fn_rename_columns_and_remove_duplicate_columns", error@message)
+        error@message = gsub("FUNCTION_NAME", "fn_rename_columns_remove_duplicate_columns_and_check_column_type_mismatch", error@message)
         return(error)
     }
     if (verbose) {
@@ -456,22 +493,52 @@ fn_rename_columns_and_remove_duplicate_columns = function(df, database, table_na
             print("No duplicate columns")
         }
     }
-    ### Identify intersection between incoming and existing column names
-    vec_incoming_colnames = colnames(df)
-    vec_existing_colnames = DBI::dbGetQuery(conn=database, statement=paste0("PRAGMA TABLE_INFO(", table_name, ")"))$name
-    vec_common_colnames = vec_incoming_colnames[which(vec_incoming_colnames %in% vec_existing_colnames)]
+    ### Identify intersection between existing and incoming column names
+    vec_incoming_column_names = colnames(df)
+    df_existing_table_info = DBI::dbGetQuery(conn=database, statement=paste0("PRAGMA TABLE_INFO(", table_name, ")"))
+    vec_existing_column_names = df_existing_table_info$name
+    vec_common_column_names = vec_incoming_column_names[which(vec_incoming_column_names %in% vec_existing_column_names)]
     if (verbose) {
-        if (length(vec_common_colnames) > 0) {
+        if (length(vec_common_column_names) > 0) {
             print(paste0("The following column names are already present in the existing ", table_name, " table:"))
-            cat("\t-", paste(vec_common_colnames, collapse="\n\t- "), "\n")
+            cat("\t-", paste(vec_common_column_names, collapse="\n\t- "), "\n")
         } else {
-            db_name = DBI::dbGetQuery(conn=database, statement="PRAGMA DATABASE_LIST")$file
-            if (length(vec_existing_colnames)==0) {
+            db_name = DBI::dbGetQuery(conn=database, statement="PRAGMA DATABASE_LIST")$file[1]
+            if (length(vec_existing_column_names)==0) {
                 print(paste0("The ", table_name, " table does not exist yet in the database (", db_name, ")."))
             } else {
                 print(paste0("All columns in the incoming ", table_name, " table is already present in the existing table in the database (", db_name, ")."))
             }
         }
+    }
+    ### Check for column type mismatch between existing and incoming tables
+    error = NULL
+    for (column_name in vec_common_column_names) {
+        # column_name = vec_common_column_names[2]
+        existing_type = df_existing_table_info$type[df_existing_table_info$name == column_name]
+        incoming_type = class(eval(parse(text=paste0("df$`", column_name, "`"))))
+        if (sum(grepl(existing_type, c("REAL", "INTEGER", "NUMERIC"))) > 0) {
+            if (sum(grepl(incoming_type, c("numeric", "integer", "complex", "logical"))) == 0) {
+                error_new = methods::new("dbError",
+                    code=000,
+                    message=paste0("Error in fn_rename_columns_remove_duplicate_columns_and_check_column_type_mismatch(...): ", 
+                    "the column ", column_name, " is expected to be numeric. ", 
+                    "Please check the incoming ", table_name, " table."))
+                if (is.null(error)) {error = error_new} else {error = chain(error, error_new)}
+            }
+        } else {
+            if (sum(grepl(incoming_type, c("character"))) == 0) {
+                error_new = methods::new("dbError",
+                    code=000,
+                    message=paste0("Error in fn_rename_columns_remove_duplicate_columns_and_check_column_type_mismatch(...): ", 
+                    "the column ", column_name, " is expected to be non-numeric (string/text). ", 
+                    "Please check the incoming ", table_name, " table."))
+                if (is.null(error)) {error = error_new} else {error = chain(error, error_new)}
+            }
+        }
+    }
+    if (!is.null(error)) {
+        return(error)
     }
     ### Output
     return(df)
@@ -533,7 +600,7 @@ fn_add_hash_UID_and_remove_duplicate_rows = function(df, database, table_name, v
     }
     ### Check input data frame where we rename and remove duplicate columns and/or remove duplicate columns if needed
     if (sum(colnames(df) == toupper(colnames(df))) != ncol(df)) {
-        df = fn_rename_columns_and_remove_duplicate_columns(df=df, database=database, table_name=table_name, verbose=verbose)
+        df = fn_rename_columns_remove_duplicate_columns_and_check_column_type_mismatch(df=df, database=database, table_name=table_name, verbose=verbose)
         if (methods::is(df, "dbError")) {
             error = chain(df, methods::new("dbError",
                 code=000,
@@ -630,7 +697,7 @@ fn_add_hash_UID_and_remove_duplicate_rows = function(df, database, table_name, v
 }
 
 #' Extract entries, loci, and genotypes tables from an allele frequency table
-#' @param df allele frequency table in data frame format:
+#' @param df_allele_frequency_table allele frequency table in data frame format:
 #'  read from a tab-delimited file with a header line and the first 3 columns refer to the
 #'  chromosome (chr), position (pos), and allele (allele),
 #'  with subsequent columns referring to the allele frequencies of a sample, entry or pool.
@@ -655,26 +722,29 @@ fn_add_hash_UID_and_remove_duplicate_rows = function(df, database, table_name, v
 #'      n_treatments=3,
 #'      n_loci=10e3,
 #'      save_data_tables=TRUE)$list_fnames_tables
-#' df = utils::read.delim(list_fnames_tables$fname_genotypes, header=TRUE)
+#' df_allele_frequency_table = utils::read.delim(list_fnames_tables$fname_genotypes, header=TRUE)
 #' database = DBI::dbConnect(drv=RSQLite::SQLite(), dbname="test.sqlite")
-#' list_df_genotypes_df_loci_df_entries = fn_convert_allele_frequency_table_into_blobs_and_dfs(df=df, 
+#' list_df_genotypes_df_loci_df_entries = fn_convert_allele_frequency_table_into_blobs_and_dfs(
+#'      df_allele_frequency_table=df_allele_frequency_table, 
 #'      database=database, table_name="genotypes", verbose=TRUE)
 #' DBI::dbDisconnect(database)
 #' unlink("test.sqlite")
 #' @export
-fn_convert_allele_frequency_table_into_blobs_and_dfs = function(df, database, table_name="genotypes", verbose=TRUE) {
+fn_convert_allele_frequency_table_into_blobs_and_dfs = function(
+    df_allele_frequency_table, database, table_name="genotypes", verbose=TRUE
+) {
     ################################################################
     ### TEST
     # list_fnames_tables = fn_simulate_tables(n_dates=3, n_sites=3, n_treatments=3, save_data_tables=TRUE)$list_fnames_tables
-    # df = utils::read.delim(list_fnames_tables$fname_genotypes, header=TRUE, check.names=FALSE)
+    # df_allele_frequency_table = utils::read.delim(list_fnames_tables$fname_genotypes, header=TRUE, check.names=FALSE)
     # database = DBI::dbConnect(drv=RSQLite::SQLite(), dbname="test.sqlite")
     # table_name = "genotypes"
     # verbose = TRUE
     ################################################################
     ### Check inputs
-    if (!grepl("chr", colnames(df)[1], ignore.case=TRUE) |
-        !grepl("pos", colnames(df)[2], ignore.case=TRUE) |
-        !grepl("allele", colnames(df)[3], ignore.case=TRUE)) {
+    if (!grepl("chr", colnames(df_allele_frequency_table)[1], ignore.case=TRUE) |
+        !grepl("pos", colnames(df_allele_frequency_table)[2], ignore.case=TRUE) |
+        !grepl("allele", colnames(df_allele_frequency_table)[3], ignore.case=TRUE)) {
         error = methods::new("dbError",
             code=000,
             message=paste0("Error in fn_convert_allele_frequency_table_into_blobs_and_dfs(...): ",
@@ -687,7 +757,7 @@ fn_convert_allele_frequency_table_into_blobs_and_dfs = function(df, database, ta
         "The first column being entry UIDs, and the second being a BLOBs consisting of serialised (raw bytes) allele frequencies."))
     }
     ### Extract loci table
-    df_loci = fn_add_hash_UID_and_remove_duplicate_rows(df=data.frame(CHROMOSOME=df[,1], POSITION_PER_CHROMOSOME=df[,2], ALLELE=df[,3]), database=database, table_name="loci", verbose=verbose)
+    df_loci = fn_add_hash_UID_and_remove_duplicate_rows(df=data.frame(CHROMOSOME=df_allele_frequency_table[,1], POSITION_PER_CHROMOSOME=df_allele_frequency_table[,2], ALLELE=df_allele_frequency_table[,3]), database=database, table_name="loci", verbose=verbose)
     if (methods::is(df_loci, "dbError")) {
         error = chain(df_loci, methods::new("dbError",
             code=000,
@@ -696,7 +766,7 @@ fn_convert_allele_frequency_table_into_blobs_and_dfs = function(df, database, ta
         return(error)
     }
     ### Extract the UID and hashes of the entries if they exist in the database using the entry names alone
-    df_entries_tmp = data.frame(ENTRY=colnames(df)[-1:-3], TYPE="UKN", POPULATION="UKN", CULTIVAR="UKN")
+    df_entries_tmp = data.frame(ENTRY=colnames(df_allele_frequency_table)[-1:-3], TYPE="UKN", POPULATION="UKN", CULTIVAR="UKN")
     df_entries = fn_add_hash_UID_and_remove_duplicate_rows(df=df_entries_tmp, database=database, table_name="entries", verbose=verbose)
     if (methods::is(df_entries, "dbError")) {
         error = chain(df_entries, methods::new("dbError",
@@ -723,10 +793,10 @@ fn_convert_allele_frequency_table_into_blobs_and_dfs = function(df, database, ta
         }
     }
     ### Extract the genotypes table
-    df_genotypes = data.frame(ENTRY_UID=df_entries$ENTRY_UID, I(lapply(df[, -1:-3], FUN=function(x){serialize(object=x, connection=NULL)})))
+    df_genotypes = data.frame(ENTRY_UID=df_entries$ENTRY_UID, I(lapply(df_allele_frequency_table[, -1:-3], FUN=function(x){serialize(object=x, connection=NULL)})))
     colnames(df_genotypes) = c("ENTRY_UID", "BLOB")
     if (verbose) {
-        print(paste0("Extracted ", ncol(df)-3, " entries x ", nrow(df)-1, " loci genotypes table."))
+        print(paste0("Extracted ", ncol(df_allele_frequency_table)-3, " entries x ", nrow(df_allele_frequency_table)-1, " loci genotypes table."))
     }
     ### Output
     return(list(
@@ -801,7 +871,7 @@ fn_prepare_data_table_and_extract_base_tables = function(df, database, table_nam
     }
     ### Filter and add ID columns
     if (table_name != "genotypes") {
-        df = fn_rename_columns_and_remove_duplicate_columns(df=df, database=database, table_name=table_name, verbose=verbose)
+        df = fn_rename_columns_remove_duplicate_columns_and_check_column_type_mismatch(df=df, database=database, table_name=table_name, verbose=verbose)
         if (methods::is(df, "dbError")) {
             error = chain(df, methods::new("dbError",
                 code=000,
@@ -865,7 +935,7 @@ fn_prepare_data_table_and_extract_base_tables = function(df, database, table_nam
                 vec_column_names = colnames(df)[vec_idx_column_names]
                 df_base_table = data.frame(vec_column_names, "")
                 colnames(df_base_table) = c(fn_define_hash_and_UID_prefix(base_table_name), "DESCRIPTION")
-                df_base_table = fn_rename_columns_and_remove_duplicate_columns(df=df_base_table, database=database, table_name=base_table_name, verbose=verbose)
+                df_base_table = fn_rename_columns_remove_duplicate_columns_and_check_column_type_mismatch(df=df_base_table, database=database, table_name=base_table_name, verbose=verbose)
                 if (methods::is(df_base_table, "dbError")) {
                     error = chain(df_base_table, methods::new("dbError",
                         code=000,
@@ -1412,7 +1482,11 @@ fn_append = function(df, database, table_name, verbose=TRUE) {
 #' Initialise the database
 #' @param fname_db name of the SQLite database file
 #' @param list_df_data_tables list containing the 3 data tables as data frames, 
-#'  i.e. 'df_phenotypes', 'df_environments' and 'df_genotypes' data tables
+#'  i.e. 'df_phenotypes', 'df_environments' and 'df_genotypes' data tables.
+#'  Note that 'df_genotypes' is a data frame corresponding to an allele frequency table, where
+#'          the first 3 columns refer to the CHROMOSOME, POSITION_PER_CHROMOSOME, and ALLELE,
+#'          followed by the allele frequencies per sample, entry or pool with their corresponding
+#'          entry names as the column names.
 #' @param verbose Show messages? (Default=TRUE)
 #' @returns
 #'  - Ok: 0
@@ -1541,6 +1615,10 @@ fn_initialise_db = function(fname_db, list_df_data_tables, verbose=TRUE) {
 #' @param fname_db name of the SQLite database file
 #' @param df data frame representing a base (entries, dates, sites, treatments, traits, abiotics, 
 #'  and loci) or data (phenotypes, environments and genotypes) table
+#'  Note that if the table is a genotypes tables then we expect `df` to be a data frame corresponding 
+#'          to an allele frequency table, where the first 3 columns refer to the CHROMOSOME, 
+#'          POSITION_PER_CHROMOSOME, and ALLELE, followed by the allele frequencies per sample, 
+#'          entry or pool with their corresponding entry names as the column names.
 #' @param table_name name of the base or data table represented by df
 #' @param verbose Show messages? (Default=TRUE)
 #' @returns

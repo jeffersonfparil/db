@@ -10,7 +10,11 @@ fn_update_database(fname_db, df, table_name, verbose = TRUE)
 \item{fname_db}{name of the SQLite database file}
 
 \item{df}{data frame representing a base (entries, dates, sites, treatments, traits, abiotics,
-and loci) or data (phenotypes, environments and genotypes) table}
+and loci) or data (phenotypes, environments and genotypes) table
+Note that if the table is a genotypes tables then we expect \code{df} to be a data frame corresponding
+to an allele frequency table, where the first 3 columns refer to the CHROMOSOME,
+POSITION_PER_CHROMOSOME, and ALLELE, followed by the allele frequencies per sample,
+entry or pool with their corresponding entry names as the column names.}
 
 \item{table_name}{name of the base or data table represented by df}
 

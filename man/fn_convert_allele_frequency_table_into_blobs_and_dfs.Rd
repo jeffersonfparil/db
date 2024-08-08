@@ -5,14 +5,14 @@
 \title{Extract entries, loci, and genotypes tables from an allele frequency table}
 \usage{
 fn_convert_allele_frequency_table_into_blobs_and_dfs(
-  df,
+  df_allele_frequency_table,
   database,
   table_name = "genotypes",
   verbose = TRUE
 )
 }
 \arguments{
-\item{df}{allele frequency table in data frame format:
+\item{df_allele_frequency_table}{allele frequency table in data frame format:
 read from a tab-delimited file with a header line and the first 3 columns refer to the
 chromosome (chr), position (pos), and allele (allele),
 with subsequent columns referring to the allele frequencies of a sample, entry or pool.
@@ -47,9 +47,10 @@ list_fnames_tables = fn_simulate_tables(
      n_treatments=3,
      n_loci=10e3,
      save_data_tables=TRUE)$list_fnames_tables
-df = utils::read.delim(list_fnames_tables$fname_genotypes, header=TRUE)
+df_allele_frequency_table = utils::read.delim(list_fnames_tables$fname_genotypes, header=TRUE)
 database = DBI::dbConnect(drv=RSQLite::SQLite(), dbname="test.sqlite")
-list_df_genotypes_df_loci_df_entries = fn_convert_allele_frequency_table_into_blobs_and_dfs(df=df, 
+list_df_genotypes_df_loci_df_entries = fn_convert_allele_frequency_table_into_blobs_and_dfs(
+     df_allele_frequency_table=df_allele_frequency_table, 
      database=database, table_name="genotypes", verbose=TRUE)
 DBI::dbDisconnect(database)
 unlink("test.sqlite")

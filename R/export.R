@@ -29,13 +29,15 @@
 #'      n_treatments=3,
 #'      n_loci=10e3,
 #'      save_data_tables=TRUE)$list_fnames_tables
+#' df_allele_frequency_table = utils::read.delim(
+#'          list_fnames_tables$fname_genotypes, 
+#'          header=TRUE, check.names=FALSE)
 #' list_df_data_tables = list(
 #'     df_phenotypes=utils::read.delim(list_fnames_tables$fname_phenotypes, 
 #'          header=TRUE),
 #'     df_environments=utils::read.delim(list_fnames_tables$fname_environments, 
 #'          header=TRUE),
-#'     df_genotypes=utils::read.delim(list_fnames_tables$fname_genotypes, 
-#'          header=TRUE, check.names=FALSE))
+#'     df_genotypes=df_allele_frequency_table)
 #' fn_initialise_db(fname_db="test.sqlite", 
 #'          list_df_data_tables=list_df_data_tables, verbose=TRUE)
 #' database = DBI::dbConnect(drv=RSQLite::SQLite(), dbname="test.sqlite")
@@ -58,10 +60,11 @@ fn_check_export_inputs = function(database, table_name, list_filters=NULL, vec_c
     ### TEST
     # list_fnames_tables = fn_simulate_tables(n_dates=3, n_sites=3, n_treatments=3, save_data_tables=TRUE)$list_fnames_tables
     # fname_db = "test.sqlite"
+    # df_allele_frequency_table = utils::read.delim(list_fnames_tables$fname_genotypes, header=TRUE, check.names=FALSE)
     # list_df_data_tables = list(
     #     df_phenotypes=utils::read.delim(list_fnames_tables$fname_phenotypes, header=TRUE),
     #     df_environments=utils::read.delim(list_fnames_tables$fname_environments, header=TRUE),
-    #     df_genotypes=utils::read.delim(list_fnames_tables$fname_genotypes, header=TRUE, check.names=FALSE))
+    #     df_genotypes=df_allele_frequency_table)
     # fn_initialise_db(fname_db=fname_db, list_df_data_tables=list_df_data_tables, verbose=TRUE)
     # database = DBI::dbConnect(drv=RSQLite::SQLite(), dbname=fname_db)
     # table_name = "phenotypes"
@@ -201,13 +204,15 @@ fn_check_export_inputs = function(database, table_name, list_filters=NULL, vec_c
 #'      n_treatments=3,
 #'      n_loci=10e3,
 #'      save_data_tables=TRUE)$list_fnames_tables
+#' df_allele_frequency_table = utils::read.delim(
+#'          list_fnames_tables$fname_genotypes, 
+#'          header=TRUE, check.names=FALSE)
 #' list_df_data_tables = list(
 #'     df_phenotypes=utils::read.delim(list_fnames_tables$fname_phenotypes, 
 #'          header=TRUE),
 #'     df_environments=utils::read.delim(list_fnames_tables$fname_environments, 
 #'          header=TRUE),
-#'     df_genotypes=utils::read.delim(list_fnames_tables$fname_genotypes, 
-#'          header=TRUE, check.names=FALSE))
+#'     df_genotypes=df_allele_frequency_table)
 #' fn_initialise_db(fname_db="test.sqlite", 
 #'          list_df_data_tables=list_df_data_tables, verbose=TRUE)
 #' database = DBI::dbConnect(drv=RSQLite::SQLite(), dbname="test.sqlite")
@@ -248,10 +253,11 @@ fn_query_and_left_join_tables = function(database, list_tables_and_filters, uniq
     ### TEST
     # list_fnames_tables = fn_simulate_tables(n_dates=3, n_sites=3, n_treatments=3, save_data_tables=TRUE)$list_fnames_tables
     # fname_db = "test.sqlite"
+    # df_allele_frequency_table = utils::read.delim(list_fnames_tables$fname_genotypes, header=TRUE, check.names=FALSE)
     # list_df_data_tables = list(
     #     df_phenotypes=utils::read.delim(list_fnames_tables$fname_phenotypes, header=TRUE),
     #     df_environments=utils::read.delim(list_fnames_tables$fname_environments, header=TRUE),
-    #     df_genotypes=utils::read.delim(list_fnames_tables$fname_genotypes, header=TRUE, check.names=FALSE))
+    #     df_genotypes=df_allele_frequency_table)
     # fn_initialise_db(fname_db=fname_db, list_df_data_tables=list_df_data_tables, verbose=TRUE)
     # database = DBI::dbConnect(drv=RSQLite::SQLite(), dbname=fname_db)
     # list_tables_and_filters = list(
@@ -388,7 +394,7 @@ fn_query_and_left_join_tables = function(database, list_tables_and_filters, uniq
         "SELECT", 
         paste(vec_select, collapse=", "), 
         paste0("FROM ", vec_table_names[1]))
-    if (length(vec_range_i) > 0) {
+    if (length(vec_table_names) > 1)  {
         for (i in vec_range_i) {
             # i = 1
             vec_query = c(vec_query, 
@@ -426,16 +432,69 @@ fn_query_and_left_join_tables = function(database, list_tables_and_filters, uniq
     return(df_query)
 }
 
-# Assess the number of unique elements in each column of a table after an optional filtering
-fn_assess_df_subsets = function(database, table_name, list_filters=NULL, vec_columns_levels_to_count=NULL, verbose=TRUE) {
+#' Assess the number of unique elements in each column of a table after an optional filtering
+#' @param database an open SQLite database connection
+#' @param table_name name of the (entries, dates, sites, treatments, traits, abiotics, 
+#'  and loci) or data (phenotypes, environments and genotypes) table represented by df
+#' @param list_filters list of named vectors where each vector refers to a valid 
+#'  column name in the specified table with the values to be selected.
+#'  A numeric column is always specified as a range of values, i.e. minimum and maximum values,
+#'  but these can be the same value, and the same numeric column can be included multiple times with 
+#'  various ranges which is equivalent to using a vector of values or ranges of values to filter.
+#'  A text column is always specified by a vector of strings. (Default=NULL)
+#' @param vec_column_names_to_count vector of column names for which the unique elements will be 
+#'  counted. If NULL, then all the required columns of the table will be used. (Default=NULL)
+#' @param verbose Show messages? (Default=TRUE)
+#' @returns
+#'  - Ok:
+#'      $df_all_possible_combinations: data frame of all possible combinations of the elements 
+#'          of the columns used for filtering (see `list_filters`), and the corresponding 
+#'          numbers of unique elements found in each columns requested to be counted 
+#'          (see `vec_column_names_to_count`)
+#'      $list_per_combination: list of vectors of counts of each unique element per combination of
+#'          filtering columns (see `list_filters`), and 
+#'          columns to count (see `vec_column_names_to_count`)
+#'  - Err: dbError
+#' @examples
+#' list_fnames_tables = fn_simulate_tables(
+#'      n_entries=50,
+#'      n_dates=3,
+#'      n_sites=3,
+#'      n_treatments=3,
+#'      n_loci=10e3,
+#'      save_data_tables=TRUE)$list_fnames_tables
+#' fname_db = "test.sqlite"
+#' df_allele_frequency_table = utils::read.delim(
+#'          list_fnames_tables$fname_genotypes, 
+#'          header=TRUE, check.names=FALSE)
+#' list_df_data_tables = list(
+#'     df_phenotypes=utils::read.delim(list_fnames_tables$fname_phenotypes, header=TRUE),
+#'     df_environments=utils::read.delim(list_fnames_tables$fname_environments, header=TRUE),
+#'     df_genotypes=df_allele_frequency_table)
+#' fn_initialise_db(fname_db=fname_db, list_df_data_tables=list_df_data_tables, verbose=TRUE)
+#' database = DBI::dbConnect(drv=RSQLite::SQLite(), dbname=fname_db)
+#' table_name = "phenotypes"
+#' list_filters=list(
+#'             REPLICATION="*",
+#'             MONTH=c(1, 12),
+#'             TREATMENT=sample(unique(list_df_data_tables$df_phenotypes$TREATMENT), 
+#'                  size=min(c(2, length(unique(list_df_data_tables$df_phenotypes$TREATMENT)))))
+#'             )
+#' list_counts = fn_assess_df_subsets(database=database, table_name=table_name, 
+#'      list_filters=list_filters, vec_column_names_to_count=NULL, verbose=TRUE)
+#' DBI::dbDisconnect(database)
+#' unlink("test.sqlite")
+#' @export
+fn_assess_df_subsets = function(database, table_name, list_filters=NULL, vec_column_names_to_count=NULL, verbose=TRUE) {
     ################################################################
     ### TEST
     # list_fnames_tables = fn_simulate_tables(n_dates=3, n_sites=3, n_treatments=3, save_data_tables=TRUE)$list_fnames_tables
     # fname_db = "test.sqlite"
+    # df_allele_frequency_table = utils::read.delim(list_fnames_tables$fname_genotypes, header=TRUE, check.names=FALSE)
     # list_df_data_tables = list(
     #     df_phenotypes=utils::read.delim(list_fnames_tables$fname_phenotypes, header=TRUE),
     #     df_environments=utils::read.delim(list_fnames_tables$fname_environments, header=TRUE),
-    #     df_genotypes=utils::read.delim(list_fnames_tables$fname_genotypes, header=TRUE, check.names=FALSE))
+    #     df_genotypes=df_allele_frequency_table)
     # fn_initialise_db(fname_db=fname_db, list_df_data_tables=list_df_data_tables, verbose=TRUE)
     # database = DBI::dbConnect(drv=RSQLite::SQLite(), dbname=fname_db)
     # table_name = "phenotypes"
@@ -444,7 +503,7 @@ fn_assess_df_subsets = function(database, table_name, list_filters=NULL, vec_col
     #             MONTH=c(1, 12),
     #             TREATMENT=sample(unique(list_df_data_tables$df_phenotypes$TREATMENT), size=min(c(2, length(unique(list_df_data_tables$df_phenotypes$TREATMENT)))))
     #             )
-    # vec_columns_levels_to_count = NULL
+    # vec_column_names_to_count = NULL
     # verbose = TRUE
     ################################################################
     ### Check for input error errors
@@ -466,6 +525,20 @@ fn_assess_df_subsets = function(database, table_name, list_filters=NULL, vec_col
     if (verbose) {
         print(utils::str(df))
     }
+    ### If list_filters is NULL, then we use all the required column of the input table and select all values, i.e. no filtering
+    if (is.null(list_filters)) {
+        if (verbose) {
+            print(paste0(
+                "No filtering: `list_filters` is NULL. ",
+                "This will take a while as we will test all possible combinations of all ",
+                "the unique elements of the required columns of ", table_name, " table"))
+        }
+        vec_required_column_names = unique(unlist(eval(parse(text=paste0("GLOBAL_list_required_colnames_per_table()$", table_name)))))
+        list_filters = list()
+        for (required_column_name in vec_required_column_names) {
+            eval(parse(text=paste0("list_filters$`", required_column_name, "` = '*'")))
+        }
+    }
     ### Define the levels per field used for filtering
     list_column_levels_or_values = list()
     for (column_name in names(list_filters)) {
@@ -476,7 +549,7 @@ fn_assess_df_subsets = function(database, table_name, list_filters=NULL, vec_col
         }
         eval(parse(text=paste0("list_column_levels_or_values$`", column_name, "` = vec_levels_or_values")))
     }
-    ### Define all possible combinations of the field levels
+    ### Define all possible combinations of the field levels used in filtering
     ### Note that all numeric columns are assumed to be ranges and not UID.
     vec_string_for_expand_grid = c()
     for (i in 1:length(list_column_levels_or_values)) {
@@ -490,8 +563,12 @@ fn_assess_df_subsets = function(database, table_name, list_filters=NULL, vec_col
     }
     df_all_possible_combinations = eval(parse(text=paste0("expand.grid(", paste(vec_string_for_expand_grid, collapse=", "), ")")))
     ### Add the fields where we will put the number of levels or unique items for each required column
-    if (is.null(vec_columns_levels_to_count)) {
-        vec_column_names_to_count = unique(unlist(GLOBAL_list_required_colnames_per_table()))
+    if (is.null(vec_column_names_to_count)) {
+        if (verbose) {
+            print(paste0(
+                "The unique elements of all the required columns of the ", table_name, " table will be counted."))
+        }
+        vec_column_names_to_count = unique(unlist(eval(parse(text=paste0("GLOBAL_list_required_colnames_per_table()$", table_name)))))
     }
     for (req_col_name in vec_column_names_to_count) {
         eval(parse(text=paste0("df_all_possible_combinations$`N_UNIQ_", req_col_name, "` = NA")))
@@ -499,7 +576,8 @@ fn_assess_df_subsets = function(database, table_name, list_filters=NULL, vec_col
     ### View subsets where each subset refer to a combination among all possible field level combinations
     ### Then count the number of unique elements of levels across the columns we wish to count defined by `vec_column_names_to_count`.
     ### Note that all numeric columns are assumed to be ranges and not UID.
-    list_out = list()
+    list_per_combination = list()
+    if (verbose) {pb = txtProgressBar(min=0, max=nrow(df_all_possible_combinations), style=3)}
     for (i in 1:nrow(df_all_possible_combinations)) {
         # i = 1
         vec_string_idx = c()
@@ -521,26 +599,69 @@ fn_assess_df_subsets = function(database, table_name, list_filters=NULL, vec_col
             # req_col_name = vec_column_names_to_count[1]
             y = eval(parse(text=paste0("table(df_sub$`", req_col_name, "`)")))
             eval(parse(text=paste0("df_all_possible_combinations$`N_UNIQ_", req_col_name, "`[i] = length(y)")))
-            eval(parse(text=paste0("list_out$`", paste0(paste(vec_string_idx, collapse=" & "), ":", req_col_name), "` = y")))
+            eval(parse(text=paste0("list_per_combination$`", paste0(paste(vec_string_idx, collapse=" & "), ":", req_col_name), "` = y")))
         }
+        if (verbose) {setTxtProgressBar(pb, i)}
     }
     if (verbose) {
+        close(pb)
         print(df_all_possible_combinations)
     }
     ### Output
-    list_out$df_all_possible_combinations = df_all_possible_combinations
-    return(list_out)
+    list_counts = list(
+        df_all_possible_combinations=df_all_possible_combinations,
+        list_per_combination=list_per_combination
+    )
+    return(list_counts)
 }
 
+#' Deserialise the genotype data from the genotypes table in the database
+#' @param database an open SQLite database connection
+#' @param df_genotypes data frame containing the genotype data extracted from the database.
+#'  The first column refers to the ENTRY_UIDs, and the second column refer to the BLOBs of
+#'  serialiased/binary genotype data.
+#' @param verbose Show messages? (Default=TRUE)
+#' @returns
+#'  - Ok:
+#'      df_allele_frequency_table: data frame corresponding to an allele frequency table, where
+#'          the first 3 columns refer to the CHROMOSOME, POSITION_PER_CHROMOSOME, and ALLELE,
+#'          followed by the allele frequencies per sample, entry or pool with their corresponding
+#'          entry names as the column names.
+#'  - Err: dbError
+#' @examples
+#' list_fnames_tables = fn_simulate_tables(
+#'      n_entries=50,
+#'      n_dates=3,
+#'      n_sites=3,
+#'      n_treatments=3,
+#'      n_loci=10e3,
+#'      save_data_tables=TRUE)$list_fnames_tables
+#' fname_db = "test.sqlite"
+#' df_allele_frequency_table = utils::read.delim(
+#'          list_fnames_tables$fname_genotypes, 
+#'          header=TRUE, check.names=FALSE)
+#' list_df_data_tables = list(
+#'     df_phenotypes=utils::read.delim(list_fnames_tables$fname_phenotypes, header=TRUE),
+#'     df_environments=utils::read.delim(list_fnames_tables$fname_environments, header=TRUE),
+#'     df_genotypes=df_allele_frequency_table)
+#' fn_initialise_db(fname_db=fname_db, list_df_data_tables=list_df_data_tables, verbose=TRUE)
+#' database = DBI::dbConnect(drv=RSQLite::SQLite(), dbname=fname_db)
+#' df_genotypes = DBI::dbGetQuery(conn=database, statement="SELECT * FROM genotypes")
+#' df_allele_frequency_table = fn_deserialise_genotype_data(database=database, 
+#'      df_genotypes=df_genotypes, verbose=TRUE)
+#' DBI::dbDisconnect(database)
+#' unlink("test.sqlite")
+#' @export
 fn_deserialise_genotype_data = function(database, df_genotypes, verbose=TRUE) {
     ################################################################
     ### TEST
     # list_fnames_tables = fn_simulate_tables(n_dates=3, n_sites=3, n_treatments=3, save_data_tables=TRUE)$list_fnames_tables
     # fname_db = "test.sqlite"
+    # df_allele_frequency_table = utils::read.delim(list_fnames_tables$fname_genotypes, header=TRUE, check.names=FALSE)
     # list_df_data_tables = list(
     #     df_phenotypes=utils::read.delim(list_fnames_tables$fname_phenotypes, header=TRUE),
     #     df_environments=utils::read.delim(list_fnames_tables$fname_environments, header=TRUE),
-    #     df_genotypes=utils::read.delim(list_fnames_tables$fname_genotypes, header=TRUE, check.names=FALSE))
+    #     df_genotypes=df_allele_frequency_table)
     # fn_initialise_db(fname_db=fname_db, list_df_data_tables=list_df_data_tables, verbose=TRUE)
     # database = DBI::dbConnect(drv=RSQLite::SQLite(), dbname=fname_db)
     # df_genotypes = DBI::dbGetQuery(conn=database, statement="SELECT * FROM genotypes")
@@ -564,6 +685,25 @@ fn_deserialise_genotype_data = function(database, df_genotypes, verbose=TRUE) {
     vec_q = unserialize(as.raw(unlist(df_genotypes$BLOB[1])))
     n = nrow(df_genotypes)
     p = length(vec_q)
+    
+    
+    
+    df_allele_frequency_table = data.frame(df_loci[, -1:-2], matrix(NA, nrow=p, ncol=n))
+    vec_entry_names = df_entries$ENTRY[df_entries$ENTRY_UID %in% df_genotypes$ENTRY_UID]
+    colnames(df_allele_frequency_table)[-1:-3] = vec_entry_names
+    if (verbose) {pb = utils::txtProgressBar(min=0, max=n, style=3)}
+    for (i in 1:n) {
+        # i = 1
+        entry_name = vec_entry_names[i]
+        eval(parse(text=paste0("df_allele_frequency_table$`", entry_name, "` = unserialize(as.raw(unlist(df_genotypes$BLOB[i])))")))
+        if (verbose) {utils::setTxtProgressBar(pb, i)}
+    }
+    if (verbose) {close(pb)}
+
+    str(df_allele_frequency_table)
+    head(df_allele_frequency_table)
+
+
     G = matrix(NA, nrow=n, ncol=p)
     rownames(G) = df_entries$ENTRY[df_entries$ENTRY_UID %in% df_genotypes$ENTRY_UID]
     colnames(G) = unlist(apply(df_loci, MARGIN=1, FUN=function(x){paste(gsub(" ", "", x[-1:-2]), collapse="\t")}))
