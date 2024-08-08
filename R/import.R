@@ -866,7 +866,7 @@ fn_prepare_data_table_and_extract_base_tables = function(df, database, table_nam
     }
     ### Convert allele frequency table into the expected genotypes table
     if (table_name == "genotypes") {
-        list_df_genotypes_df_loci_df_entries = fn_convert_allele_frequency_table_into_blobs_and_dfs(df=df, database=database, verbose=verbose)
+        list_df_genotypes_df_loci_df_entries = fn_convert_allele_frequency_table_into_blobs_and_dfs(df_allele_frequency_table=df, database=database, verbose=verbose)
         df = list_df_genotypes_df_loci_df_entries$df_genotypes
     }
     ### Filter and add ID columns
@@ -1698,7 +1698,7 @@ fn_update_database = function(fname_db, df, table_name, verbose=TRUE) {
     ### Check inputs
     error = fn_check_import_inputs(df=df, database=database, table_name=table_name)
     if (!is.null(error)) {
-        error@message = gsub("FUNCTION_NAME", "fn_prepare_data_table_and_extract_base_tables", error@message)
+        error@message = gsub("FUNCTION_NAME", "fn_update_database", error@message)
         return(error)
     }
     ### Remove quotes which will interfere with SQL queries

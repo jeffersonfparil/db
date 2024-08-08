@@ -47,7 +47,8 @@ list_df_data_tables = list(
 fn_initialise_db(fname_db=fname_db, list_df_data_tables=list_df_data_tables, verbose=TRUE)
 database = DBI::dbConnect(drv=RSQLite::SQLite(), dbname=fname_db)
 df_genotypes = DBI::dbGetQuery(conn=database, statement="SELECT * FROM genotypes")
-df_allele_frequency_table = fn_deserialise_genotype_data(database=database, df_genotypes=df_genotypes)
+df_allele_frequency_table = fn_deserialise_genotype_data(database=database, 
+     df_genotypes=df_genotypes, verbose=TRUE)
 DBI::dbDisconnect(database)
 unlink("test.sqlite")
 }

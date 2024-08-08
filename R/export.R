@@ -577,7 +577,7 @@ fn_assess_df_subsets = function(database, table_name, list_filters=NULL, vec_col
     ### Then count the number of unique elements of levels across the columns we wish to count defined by `vec_column_names_to_count`.
     ### Note that all numeric columns are assumed to be ranges and not UID.
     list_per_combination = list()
-    if (verbose) {pb = txtProgressBar(min=0, max=nrow(df_all_possible_combinations), style=3)}
+    if (verbose) {pb = utils::txtProgressBar(min=0, max=nrow(df_all_possible_combinations), style=3)}
     for (i in 1:nrow(df_all_possible_combinations)) {
         # i = 1
         vec_string_idx = c()
@@ -601,7 +601,7 @@ fn_assess_df_subsets = function(database, table_name, list_filters=NULL, vec_col
             eval(parse(text=paste0("df_all_possible_combinations$`N_UNIQ_", req_col_name, "`[i] = length(y)")))
             eval(parse(text=paste0("list_per_combination$`", paste0(paste(vec_string_idx, collapse=" & "), ":", req_col_name), "` = y")))
         }
-        if (verbose) {setTxtProgressBar(pb, i)}
+        if (verbose) {utils::setTxtProgressBar(pb, i)}
     }
     if (verbose) {
         close(pb)
@@ -685,9 +685,6 @@ fn_deserialise_genotype_data = function(database, df_genotypes, verbose=TRUE) {
     vec_q = unserialize(as.raw(unlist(df_genotypes$BLOB[1])))
     n = nrow(df_genotypes)
     p = length(vec_q)
-    
-    
-    
     df_allele_frequency_table = data.frame(df_loci[, -1:-2], matrix(NA, nrow=p, ncol=n))
     vec_entry_names = df_entries$ENTRY[df_entries$ENTRY_UID %in% df_genotypes$ENTRY_UID]
     colnames(df_allele_frequency_table)[-1:-3] = vec_entry_names
@@ -699,19 +696,5 @@ fn_deserialise_genotype_data = function(database, df_genotypes, verbose=TRUE) {
         if (verbose) {utils::setTxtProgressBar(pb, i)}
     }
     if (verbose) {close(pb)}
-
-    str(df_allele_frequency_table)
-    head(df_allele_frequency_table)
-
-
-    G = matrix(NA, nrow=n, ncol=p)
-    rownames(G) = df_entries$ENTRY[df_entries$ENTRY_UID %in% df_genotypes$ENTRY_UID]
-    colnames(G) = unlist(apply(df_loci, MARGIN=1, FUN=function(x){paste(gsub(" ", "", x[-1:-2]), collapse="\t")}))
-    if (verbose) {pb = utils::txtProgressBar(min=0, max=n, style=3)}
-    for (i in 1:n) {
-        G[i, ] = unserialize(as.raw(unlist(df_genotypes$BLOB[i])))
-        if (verbose) {utils::setTxtProgressBar(pb, i)}
-    }
-    if (verbose) {close(pb)}
-    return(G)
+    return(df_allele_frequency_table)
 }

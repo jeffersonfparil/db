@@ -132,7 +132,7 @@ test_that("fn_deserialise_genotype_data", {
     database = DBI::dbConnect(drv=RSQLite::SQLite(), dbname=fname_db)
     df_genotypes = DBI::dbGetQuery(conn=database, statement="SELECT * FROM genotypes")
     df_allele_frequency_table_SERDE = fn_deserialise_genotype_data(database=database, df_genotypes=df_genotypes, verbose=TRUE)
-    colnames(df_allele_frequency_table_SERDE)[1:3] = colname(df_allele_frequency_table)[1:3]
+    colnames(df_allele_frequency_table_SERDE)[1:3] = colnames(df_allele_frequency_table)[1:3]
     expect_equal(df_allele_frequency_table_SERDE, df_allele_frequency_table)
     DBI::dbDisconnect(database)
     unlink("test.sqlite")
