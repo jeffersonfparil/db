@@ -163,7 +163,9 @@ test_that("fn_convert_allele_frequency_table_into_blobs_and_dfs", {
     list_df_genotypes_df_loci_df_entries = fn_convert_allele_frequency_table_into_blobs_and_dfs(df_allele_frequency_table=df_allele_frequency_table, database=database, table_name="genotypes", verbose=TRUE)
     expect_equal(length(list_df_genotypes_df_loci_df_entries), 3)
     for (i in sample(4:ncol(df_allele_frequency_table), size=10)) {
-        expect_equal(length(list_df_genotypes_df_loci_df_entries$df_genotypes$BLOB[[i-3]]), length(serialize(object=df_allele_frequency_table[, i], connection=NULL)))
+        vec_bin_1 = unlist(list_df_genotypes_df_loci_df_entries$df_genotypes$BLOB[i-3]); names(vec_bin_1) = NULL
+        vec_bin_2 = serialize(object=df_allele_frequency_table[, i], connection=NULL)
+        expect_equal(vec_bin_1, vec_bin_2)
     }
     expect_equal(nrow(list_df_genotypes_df_loci_df_entries$df_loci), nrow(df_allele_frequency_table))
     expect_equal(nrow(list_df_genotypes_df_loci_df_entries$df_entries), ncol(df_allele_frequency_table)-3)
