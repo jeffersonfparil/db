@@ -154,6 +154,9 @@ fn_check_import_inputs = function(df, database, table_name, check_UIDs=FALSE, ch
     ### Does the UID column exist in the incoming table?
     if (!methods::is(df, "dbError") && (check_UIDs)) {
         prefix_of_HASH_and_UID_columns = fn_define_hash_and_UID_prefix(table_name=table_name)
+        if (table_name == "genotypes") {
+            prefix_of_HASH_and_UID_columns = "ENTRY"
+        }
         if (sum(grepl(paste0(prefix_of_HASH_and_UID_columns, "_UID$"), colnames(df))) == 0) {
             error_new = methods::new("dbError",
                 code=000,
@@ -552,7 +555,8 @@ fn_rename_columns_remove_duplicate_columns_and_check_column_type_mismatch = func
 #' @param verbose Show messages? (Default=TRUE)
 #' @returns
 #'  - Ok:
-#'      df: data frame without quotes and newline characters
+#'      $df: data frame without quotes and newline characters
+#'      $df_duplicated_in_database: data frame without quotes and newline characters with UID duplicates in the database
 #'  - Err: dbError
 #' @examples
 #' list_fnames_tables = fn_simulate_tables(
@@ -565,7 +569,7 @@ fn_rename_columns_remove_duplicate_columns_and_check_column_type_mismatch = func
 #' df = utils::read.delim(list_fnames_tables$fname_phenotypes, header=TRUE)
 #' database = DBI::dbConnect(drv=RSQLite::SQLite(), dbname="test.sqlite")
 #' df = fn_add_hash_UID_and_remove_duplicate_rows(df=df, database=database, 
-#'      table_name="phenotypes", verbose=TRUE)
+#'      table_name="phenotypes", verbose=TRUE)$df
 #' DBI::dbDisconnect(database)
 #' unlink("test.sqlite")
 #' @export
@@ -611,22 +615,18 @@ fn_add_hash_UID_and_remove_duplicate_rows = function(df, database, table_name, v
     }
     ### Define the hash and UID prefix
     prefix_of_HASH_and_UID_columns = fn_define_hash_and_UID_prefix(table_name=table_name)
-    ### Check if we have non-empty hash column
-    vec_hash = eval(parse(text=paste0("df$", prefix_of_HASH_and_UID_columns, "_HASH")))
-    if (is.null(vec_hash) || (sum(is.na(vec_hash)) > 0)) {
-        ### Hash each row of the incoming table using unique identifying columns (excluding the DESCRIPTION column in sites, treatments, traits, and abiotics base tables)
-        vec_identifying_columns = eval(parse(text=paste0("GLOBAL_list_required_colnames_per_table()$", table_name)))
-        vec_identifying_columns = vec_identifying_columns[!grepl("DESCRIPTION", vec_identifying_columns)]
-        if ((table_name == "phenotypes") | (table_name == "environments")) {
-            ### Include the additional identifying columns (i.e. date-time-related) to the phenotypes and environments data tables
-            vec_identifying_columns = c(vec_identifying_columns, GLOBAL_list_required_colnames_per_table()$additional_IDs)
-        }
-        vec_idx_identifying_columns = which(colnames(df) %in% vec_identifying_columns)
-        vec_hash_incoming = unlist(apply(df[, vec_idx_identifying_columns, drop=FALSE], MARGIN=1, FUN=rlang::hash))
-    } else {
-        vec_hash_incoming = vec_hash
+    ### Hash each row of the incoming table using unique identifying columns (excluding the DESCRIPTION column in sites, treatments, traits, and abiotics base tables)
+    vec_identifying_columns = eval(parse(text=paste0("GLOBAL_list_required_colnames_per_table()$", table_name)))
+    vec_identifying_columns = vec_identifying_columns[!grepl("DESCRIPTION", vec_identifying_columns)]
+    if ((table_name == "phenotypes") | (table_name == "environments")) {
+        ### Include the additional identifying columns (i.e. date-time-related) to the phenotypes and environments data tables
+        vec_identifying_columns = c(vec_identifying_columns, GLOBAL_list_required_colnames_per_table()$additional_IDs)
     }
-    ### Remove duplicate rows
+    vec_idx_identifying_columns = which(colnames(df) %in% vec_identifying_columns)
+    vec_hash_incoming = unlist(apply(df[, vec_idx_identifying_columns, drop=FALSE], MARGIN=1, FUN=rlang::hash))
+    ### Define the HASH column
+    eval(parse(text=paste0("df$", prefix_of_HASH_and_UID_columns, "_HASH = vec_hash_incoming")))
+    ### Remove duplicate rows from the incoming table
     vec_bool_incoming_rows_duplicates = duplicated(vec_hash_incoming)
     if (sum(vec_bool_incoming_rows_duplicates) > 0) {
         if (verbose) {
@@ -637,7 +637,10 @@ fn_add_hash_UID_and_remove_duplicate_rows = function(df, database, table_name, v
         df = df[!vec_bool_incoming_rows_duplicates, , drop=FALSE]
         vec_hash_incoming = vec_hash_incoming[!vec_bool_incoming_rows_duplicates]
     }
-    ### Compare incoming and existing hashes and remove duplicate rows
+    ### Define the UID column temporarily after removing duplicates in the incoming table.
+    ### This will be modified if there are duplicates in the existing database table.
+    eval(parse(text=paste0("df$", prefix_of_HASH_and_UID_columns, "_UID = 1:nrow(df)")))
+    ### Identify rows in the incoming table which have duplicates in the existing database table
     vec_existing_tables = DBI::dbGetQuery(conn=database, statement=paste0("PRAGMA TABLE_LIST"))$name
     if (sum(vec_existing_tables %in% table_name) == 1) {
         ### Check if hash column exists
@@ -651,49 +654,39 @@ fn_add_hash_UID_and_remove_duplicate_rows = function(df, database, table_name, v
                 "were added prior to writing tables into the database."))
             return(error)
         }
+        ### Extract the existing has and UIDs
         vec_hash_existing = DBI::dbGetQuery(conn=database, statement=paste0("SELECT ", prefix_of_HASH_and_UID_columns, "_HASH FROM ", table_name))[, 1]
+        vec_UID_existing = DBI::dbGetQuery(conn=database, statement=paste0("SELECT ", prefix_of_HASH_and_UID_columns, "_UID FROM ", table_name))[, 1]
+        ### Identify the duplicate rows by hashes
         vec_bool_incoming_rows_duplicates = vec_hash_incoming %in% vec_hash_existing
-        if (table_name == "entries") {
-            vec_entry_names_existing = DBI::dbGetQuery(conn=database, statement=paste0("SELECT ENTRY FROM ", table_name))[, 1]
-            vec_bool_compare_entry_names = rowSums((df == "UKN") | is.na(df)) == 3
-            vec_bool_incoming_rows_duplicates_using_entry_names = df$ENTRY %in% vec_entry_names_existing
-            vec_bool_incoming_rows_duplicates[vec_bool_compare_entry_names] = vec_bool_incoming_rows_duplicates_using_entry_names[vec_bool_compare_entry_names]
-        }
-        if (sum(vec_bool_incoming_rows_duplicates) > 0) {
-            if (verbose) {
-                print("Some rows in the incoming table are already present in the existing database table.")
-                print(paste0("Removing row/s in the incoming table after removing duplicates at indexes: ", paste(which(vec_bool_incoming_rows_duplicates), collapse=", ")))
-                print(paste0("Retaining ", sum(!vec_bool_incoming_rows_duplicates), " rows (original rows = ", nrow(df), ")"))
-            }
-            df = df[!vec_bool_incoming_rows_duplicates, , drop=FALSE]
-            vec_hash_incoming = vec_hash_incoming[!vec_bool_incoming_rows_duplicates]
-            if ((nrow(df)==0) & (length(vec_hash_incoming)==0)) {
-                if (verbose) {
-                    print(paste0("No new data in incoming '", table_name, "' table."))
-                    print("Returning an empty data frame.")
-                }
-                return(df)
-            }
-        }
-    }
-    ### Add the HASH column as well as the UID column in the incoming table continuing the count from the last UID in the existing table
-    if (sum(vec_existing_tables %in% table_name) == 1) {
-        UID_last = max(DBI::dbGetQuery(conn=database, statement=paste0("SELECT ", prefix_of_HASH_and_UID_columns, "_UID FROM ", table_name))[,1])
+        vec_bool_existing_rows_duplicates = vec_hash_existing %in% vec_hash_incoming
     } else {
-        UID_last = 0
+        ### No duplicates if the table does not exist in the database yet
+        vec_UID_existing = 0
+        vec_bool_incoming_rows_duplicates = rep(FALSE, times=nrow(df))
+        vec_bool_existing_rows_duplicates = NULL
     }
-    vec_UID = c(1:nrow(df)) + UID_last
-    if ((sum(colnames(df) == paste0(prefix_of_HASH_and_UID_columns, "_HASH")) == 0) && (sum(colnames(df) == paste0(prefix_of_HASH_and_UID_columns, "_UID")) == 0)) {
-        eval(parse(text=paste0("df = data.frame(", prefix_of_HASH_and_UID_columns, "_HASH = vec_hash_incoming, ", prefix_of_HASH_and_UID_columns, "_UID = vec_UID, df)")))
+    ### Divide the table into rows without duplicates in the existing database table and those which do
+    df_duplicated_in_database = df[vec_bool_incoming_rows_duplicates, , drop=FALSE]
+    df = df[!vec_bool_incoming_rows_duplicates, , drop=FALSE]
+    ### Update the UID column of the duplicate rows, only if there are duplicate rows
+    if (nrow(df_duplicated_in_database) > 0) {
+        for (hash in eval(parse(text=paste0("df_duplicated_in_database$", prefix_of_HASH_and_UID_columns, "_HASH")))) {
+            idx_incoming = which(eval(parse(text=paste0("df_duplicated_in_database$", prefix_of_HASH_and_UID_columns, "_HASH"))) == hash)
+            idx_existing = which(vec_hash_existing == hash)
+            eval(parse(text=paste0("df_duplicated_in_database$", prefix_of_HASH_and_UID_columns, "_UID[idx_incoming] = vec_UID_existing[idx_existing]")))
+        }
     }
-    if (sum(colnames(df) == paste0(prefix_of_HASH_and_UID_columns, "_HASH")) == 0) {
-        paste0("df$", prefix_of_HASH_and_UID_columns, "_HASH = vec_hash_incoming")
-    }
-    if (sum(colnames(df) == paste0(prefix_of_HASH_and_UID_columns, "_UID")) == 0) {
-        paste0("df$", prefix_of_HASH_and_UID_columns, "_UID = vec_UID")
+    ### Continue the UID from the highest UID in the exiting database table
+    if (nrow(df) > 0) {
+        UID_max = max(vec_UID_existing)
+        eval(parse(text=paste0("df$", prefix_of_HASH_and_UID_columns, "_UID = (UID_max+1):(UID_max+nrow(df))")))
     }
     ### Output
-    return(df)
+    return(list(
+        df=df,
+        df_duplicated_in_database=df_duplicated_in_database
+    ))
 }
 
 #' Extract entries, loci, and genotypes tables from an allele frequency table
@@ -757,46 +750,66 @@ fn_convert_allele_frequency_table_into_blobs_and_dfs = function(
         "The first column being entry UIDs, and the second being a BLOBs consisting of serialised (raw bytes) allele frequencies."))
     }
     ### Extract loci table
-    df_loci = fn_add_hash_UID_and_remove_duplicate_rows(df=data.frame(CHROMOSOME=df_allele_frequency_table[,1], POSITION_PER_CHROMOSOME=df_allele_frequency_table[,2], ALLELE=df_allele_frequency_table[,3]), database=database, table_name="loci", verbose=verbose)
-    if (methods::is(df_loci, "dbError")) {
-        error = chain(df_loci, methods::new("dbError",
+    list_df_loci = fn_add_hash_UID_and_remove_duplicate_rows(
+        df=data.frame(CHROMOSOME=df_allele_frequency_table[,1], POSITION_PER_CHROMOSOME=df_allele_frequency_table[,2], ALLELE=df_allele_frequency_table[,3]), 
+        database=database, table_name="loci", verbose=verbose)
+    if (methods::is(list_df_loci, "dbError")) {
+        error = chain(list_df_loci, methods::new("dbError",
             code=000,
-            message=paste0("Error in fn_add_hash_UID_and_remove_duplicate_rows(...): error renaming and removing duplication columns for incoming base '", 
+            message=paste0("Error in fn_convert_allele_frequency_table_into_blobs_and_dfs(...): error renaming and removing duplication columns for incoming base '", 
             "loci' table from '", table_name, "' data table.")))
         return(error)
     }
-    ### Extract the UID and hashes of the entries if they exist in the database using the entry names alone
-    df_entries_tmp = data.frame(ENTRY=colnames(df_allele_frequency_table)[-1:-3], TYPE="UKN", POPULATION="UKN", CULTIVAR="UKN")
-    df_entries = fn_add_hash_UID_and_remove_duplicate_rows(df=df_entries_tmp, database=database, table_name="entries", verbose=verbose)
-    if (methods::is(df_entries, "dbError")) {
-        error = chain(df_entries, methods::new("dbError",
+    ### Return the complete loci table if the loci table has not been initialised
+    ### or an empty loci table if the loci has already been initialised.
+    ### This is because we do not expect new loci to be added from new genotype data, i.e.
+    ### we expect the same set of loci to be appended into the genotypes table.
+    if (nrow(list_df_loci$df) * nrow(list_df_loci$df_duplicated_in_database) > 0) {
+        error = methods::new("dbError",
             code=000,
-            message=paste0("Error in fn_add_hash_UID_and_remove_duplicate_rows(...): error renaming and removing duplication columns for incoming base '", 
+            message=paste0("Error in fn_convert_allele_frequency_table_into_blobs_and_dfs(...): ",
+            "Mismatch in the incoming loci and existing loci in the genotypes data. Please check the genotype data."))
+        return(error)
+    } else {
+        ### Return all the loci information with hash and UID columns
+        df_loci = rbind(list_df_loci$df, list_df_loci$df_duplicated_in_database)
+    }
+    ### Using the incomplete information from the genotypes table we define hashes and UIDs of the entries table
+    df_entries = data.frame(ENTRY=colnames(df_allele_frequency_table)[-1:-3], TYPE="UKN", POPULATION="UKN", CULTIVAR="UKN")
+    list_df_entries = fn_add_hash_UID_and_remove_duplicate_rows(df=df_entries, database=database, table_name="entries", verbose=verbose)
+    if (methods::is(list_df_entries, "dbError")) {
+        error = chain(list_df_entries, methods::new("dbError",
+            code=000,
+            message=paste0("Error in fn_convert_allele_frequency_table_into_blobs_and_dfs(...): error renaming and removing duplication columns for incoming base '", 
             "entries' table from '", table_name, "' data table.")))
         return(error)
     }
-    if (nrow(df_entries) == 0) {
-        ### If all entries are already imported into the database previously then we set the output base entries table to NULL
-        df_entries = NULL
-    }
-    ### If the entries table have been initialised then extract those information for the intersecting entries and update the UIDs of the new incoming entries
+    ### We include both non-overlapping and overlapping rows to find the actual duplicates in the existing database table using the entry names alone,
+    ### while keeping the same order as the genotype data
+    df_entries = merge(
+        df_entries,
+        data.frame(
+            ENTRY=c(list_df_entries$df$ENTRY, list_df_entries$df_duplicated_in_database$ENTRY),
+            ENTRY_HASH=c(list_df_entries$df$ENTRY_HASH, list_df_entries$df_duplicated_in_database$ENTRY_HASH),
+            ENTRY_UID=c(list_df_entries$df$ENTRY_UID, list_df_entries$df_duplicated_in_database$ENTRY_UID)
+        ),
+        by="ENTRY"
+    )
     vec_existing_tables = DBI::dbGetQuery(conn=database, statement=paste0("PRAGMA TABLE_LIST"))$name
     if (sum(vec_existing_tables == "entries") == 1) {
+        ### Keep only the unique entries in the incoming entries table
         df_entries_existing = DBI::dbGetQuery(conn=database, name="entries", statement="SELECT * FROM entries")
-        vec_idx_overlap_existing = which(df_entries_existing$ENTRY %in% df_entries_tmp$ENTRY)
-        if (is.null(df_entries)) {
-            df_entries = df_entries_existing[vec_idx_overlap_existing, , drop=FALSE]
-        } else {
-            max_UID = max(df_entries_existing$ENTRY_UID)
-            df_entries$ENTRY_UID = df_entries$ENTRY_UID + max_UID
-            df_entries = rbind(df_entries, df_entries_existing[vec_idx_overlap_existing, , drop=FALSE])
+        vec_common_entry_names = df_entries$ENTRY[df_entries$ENTRY %in% df_entries_existing$ENTRY]
+        for (entry_name in vec_common_entry_names) {
+            df_entries$ENTRY_HASH[df_entries$ENTRY==entry_name] = df_entries_existing$ENTRY_HASH[df_entries_existing$ENTRY==entry_name]
+            df_entries$ENTRY_UID[df_entries$ENTRY==entry_name] = df_entries_existing$ENTRY_UID[df_entries_existing$ENTRY==entry_name]
         }
     }
     ### Extract the genotypes table
     df_genotypes = data.frame(ENTRY_UID=df_entries$ENTRY_UID, I(lapply(df_allele_frequency_table[, -1:-3], FUN=function(x){serialize(object=x, connection=NULL)})))
     colnames(df_genotypes) = c("ENTRY_UID", "BLOB")
     if (verbose) {
-        print(paste0("Extracted ", ncol(df_allele_frequency_table)-3, " entries x ", nrow(df_allele_frequency_table)-1, " loci genotypes table."))
+        print(paste0("Extracted ", ncol(df_allele_frequency_table)-3, " entries x ", nrow(df_allele_frequency_table), " loci genotypes table."))
     }
     ### Output
     return(list(
@@ -839,7 +852,7 @@ fn_convert_allele_frequency_table_into_blobs_and_dfs = function(
 #' DBI::dbDisconnect(database)
 #' unlink("test.sqlite")
 #' @export
-fn_prepare_data_table_and_extract_base_tables = function(df, database, table_name, verbose=TRUE) {
+fn_prepare_data_table_and_extract_base_tables = function(df, database, table_name, do_not_remove_duplicates, verbose=TRUE) {
     ################################################################
     ### TEST
     # list_fnames_tables = fn_simulate_tables(n_dates=3, n_sites=3, n_treatments=3, save_data_tables=TRUE)$list_fnames_tables
@@ -887,18 +900,14 @@ fn_prepare_data_table_and_extract_base_tables = function(df, database, table_nam
                 table_name, "' table.")))
             return(error)
         }
-        df = fn_add_hash_UID_and_remove_duplicate_rows(df=df, database=database, table_name=table_name, verbose=verbose)
-        if (methods::is(df, "dbError")) {
-            error = chain(df, methods::new("dbError",
+        list_df = fn_add_hash_UID_and_remove_duplicate_rows(df=df, database=database, table_name=table_name, verbose=verbose)
+        if (methods::is(list_df, "dbError")) {
+            error = chain(list_df, methods::new("dbError",
                 code=000,
                 message=paste0("Error in fn_prepare_data_table_and_extract_base_tables(...): error adding UIDs and removing duplicate rows for incoming'",
                 table_name, "' table.")))
             return(error)
         }
-    }
-    ### If we have no new data, then we return an empty data frame and null base tables
-    if (nrow(df) == 0) {
-        return(NULL)
     }
     ### Instantiate the base tables
     df_entries = NULL
@@ -910,7 +919,7 @@ fn_prepare_data_table_and_extract_base_tables = function(df, database, table_nam
     df_loci = NULL
     ### Extract the base tables
     for (i in 1:nrow(GLOBAL_df_valid_tables())) {
-        # i = 3
+        # i = 1
         ### Skip if not a base table
         if (GLOBAL_df_valid_tables()$CLASS[i] != "base") {next}
         ### Skip if the base table does not extract its contents from the current data table
@@ -924,6 +933,8 @@ fn_prepare_data_table_and_extract_base_tables = function(df, database, table_nam
                 df_base_table = list_df_genotypes_df_loci_df_entries$df_loci
             } else {
                 ### For "traits", and "abiotics" tables
+                ### Extract the entire data table including the rows duplicated in the existing table in the database
+                df = rbind(list_df$df, list_df$df_duplicated_in_database)
                 vec_idx_column_names = which(!(
                     colnames(df) %in% c(
                         GLOBAL_list_required_colnames_per_table()[[table_name]], 
@@ -943,7 +954,7 @@ fn_prepare_data_table_and_extract_base_tables = function(df, database, table_nam
                         base_table_name, "' table from '", table_name, "' data table.")))
                     return(error)
                 }
-                df_base_table = fn_add_hash_UID_and_remove_duplicate_rows(df=df_base_table, database=database, table_name=base_table_name, verbose=verbose)
+                df_base_table = fn_add_hash_UID_and_remove_duplicate_rows(df=df_base_table, database=database, table_name=base_table_name, verbose=verbose)$df
                 if (methods::is(df_base_table, "dbError")) {
                     error = chain(df_base_table, methods::new("dbError",
                         code=000,
@@ -978,7 +989,7 @@ fn_prepare_data_table_and_extract_base_tables = function(df, database, table_nam
                 } else {
                     colnames(df_base_table) = vec_required_column_names
                 }
-                df_base_table = fn_add_hash_UID_and_remove_duplicate_rows(df=df_base_table, database=database, table_name=base_table_name, verbose=verbose)
+                df_base_table = fn_add_hash_UID_and_remove_duplicate_rows(df=df_base_table, database=database, table_name=base_table_name, verbose=verbose)$df
                 if (methods::is(df_base_table, "dbError")) {
                     error = chain(df_base_table, methods::new("dbError",
                         code=000,
@@ -1528,7 +1539,7 @@ fn_initialise_db = function(fname_db, list_df_data_tables, verbose=TRUE) {
     database = DBI::dbConnect(drv=RSQLite::SQLite(), dbname=fname_db)
     ### Prepare the data tables and extract the base tables from the data tables
     for (table_name in GLOBAL_df_valid_tables()$NAME[GLOBAL_df_valid_tables()$CLASS=="data"]) {
-        # table_name = GLOBAL_df_valid_tables()$NAME[GLOBAL_df_valid_tables()$CLASS=="data"][2]
+        # table_name = GLOBAL_df_valid_tables()$NAME[GLOBAL_df_valid_tables()$CLASS=="data"][3]
         df = list_df_data_tables[[paste0("df_", table_name)]]
         if (is.null(df)) {
             df = list_df_data_tables[[table_name]]
@@ -1590,7 +1601,7 @@ fn_initialise_db = function(fname_db, list_df_data_tables, verbose=TRUE) {
         }
     }
     ### Index the tables for faster queries
-    for (table_name in GLOBAL_df_valid_tables()$NAME[-1]) {
+    for (table_name in GLOBAL_df_valid_tables()$NAME) {
         # table_name = GLOBAL_df_valid_tables()$NAME[1]
         table_name_prefix = fn_define_hash_and_UID_prefix(table_name=table_name)
         ### Skip if the table has already been indexed
@@ -1677,7 +1688,7 @@ fn_update_database = function(fname_db, df, table_name, verbose=TRUE) {
     # df_q3 = droplevels(df[(floor(n/2)+1):n, c(vec_idx_columns_HASH_UID_and_required, (floor(p/2)+1):p)])
     # df_q4 = droplevels(df[(floor(n/2)+1):n, 1:floor(p/2)])
     # df_centre = droplevels(df[floor(n*(1/3)):floor(n*(2/3)), c(vec_idx_columns_HASH_UID_and_required, floor(p*(1/3)):floor(p*(2/3)))])
-    # ### Poopulate the data tables list to and initialise the database
+    # ### Populate the data tables list to and initialise the database
     # list_df_data_tables = list()
     # for (table_name in c("phenotypes", "environments", "genotypes")) {
     #     if (table_name == "phenotypes") {
@@ -1703,65 +1714,28 @@ fn_update_database = function(fname_db, df, table_name, verbose=TRUE) {
     }
     ### Remove quotes which will interfere with SQL queries
     df = fn_remove_quotes_and_newline_characters_in_data(df, verbose=FALSE)
-    ### Define the has and UID prefix
-    prefix_of_HASH_and_UID_columns = fn_define_hash_and_UID_prefix(table_name=table_name)
-    ### Determine if we are potentially adding new columns to existing rows in the database tables.
-    ###     In which case we need to append the UID and HASH columns into the incoming table,
-    ###     because fn_add_hash_UID_and_remove_duplicate_rows will yield an empty table as all the rows 
-    ###     are duplicates of the existing table in the database.
-    df_tmp = fn_add_hash_UID_and_remove_duplicate_rows(df=df, database=database, table_name=table_name, verbose=verbose)
-    if ((nrow(df_tmp) < nrow(df)) && (sum(colnames(df) %in% paste0(prefix_of_HASH_and_UID_columns, "_", c("HASH", "UID"))) < 2)) {
-        ### Check if we have non-empty hash column
-        vec_hash = eval(parse(text=paste0("df$", prefix_of_HASH_and_UID_columns, "_HASH")))
-        if (verbose) {
-            print(paste0("Using the existing hash and UID columns in the incoming '", table_name, "' table."))
-        }
-        if (is.null(vec_hash) || (sum(is.na(vec_hash)) > 0)) {
-            if (verbose) {
-                print(paste0("Adding hash and UID columns to the incoming '", table_name, "' table."))
-            }
-            ### Hash each row of the incoming table using unique identifying columns (excluding the DESCRIPTION column in sites, treatments, traits, and abiotics base tables)
-            vec_identifying_columns = eval(parse(text=paste0("GLOBAL_list_required_colnames_per_table()$", table_name)))
-            vec_identifying_columns = vec_identifying_columns[!grepl("DESCRIPTION", vec_identifying_columns)]
-            if ((table_name == "phenotypes") | (table_name == "environments")) {
-                ### Include the additional identifying columns (i.e. date-time-related) to the phenotypes and environments data tables
-                vec_identifying_columns = c(vec_identifying_columns, GLOBAL_list_required_colnames_per_table()$additional_IDs)
-            }
-            vec_idx_identifying_columns = which(colnames(df) %in% vec_identifying_columns)
-            vec_hash_incoming = unlist(apply(df[, vec_idx_identifying_columns, drop=FALSE], MARGIN=1, FUN=rlang::hash))
-        } else {
-            vec_hash_incoming = vec_hash
-        }
-        df_existing_HASH_and_UIDs = DBI::dbGetQuery(conn=database, statement=paste0(
-            "SELECT ", prefix_of_HASH_and_UID_columns, "_HASH,", prefix_of_HASH_and_UID_columns, "_UID FROM ", table_name))
-        colnames(df_existing_HASH_and_UIDs) = gsub(paste0(prefix_of_HASH_and_UID_columns, "_"), "", colnames(df_existing_HASH_and_UIDs))
-        ### If there are some unique rows then we use its hash and proper UIDs
-        if (nrow(df_tmp) > 0) {
-            vec_incoming_unique_UIDs = eval(parse(text=paste0("df_tmp$", prefix_of_HASH_and_UID_columns, "_UID")))
-            vec_incoming_unique_HASH = eval(parse(text=paste0("df_tmp$", prefix_of_HASH_and_UID_columns, "_HASH")))
-        }
-        vec_UID_incoming = c()
-        for (hash in vec_hash_incoming) {
-            idx = which(df_existing_HASH_and_UIDs$HASH == hash)
-            if (length(idx) == 1) {
-                ### If the HASH exists in the database:
-                vec_UID_incoming = c(vec_UID_incoming, df_existing_HASH_and_UIDs$UID[idx])
-            } else {
-                ### If the HASH is new:
-                idx = which(vec_incoming_unique_HASH == hash)
-                vec_UID_incoming = c(vec_UID_incoming, vec_incoming_unique_UIDs[idx])
-
-            }
-        }
-        eval(parse(text=paste0("df$", prefix_of_HASH_and_UID_columns, "_HASH = vec_hash_incoming")))
-        eval(parse(text=paste0("df$", prefix_of_HASH_and_UID_columns, "_UID = vec_UID_incoming")))
+    ### Add hash and UID columns, remove duplicates and separate the rows which are duplicated in the existing database as determined by hashes
+    list_df = fn_add_hash_UID_and_remove_duplicate_rows(df=df, database=database, table_name=table_name, verbose=verbose)
+    if (methods::is(list_df, "dbError")) {
+        error = chain(list_df, methods::new("dbError",
+            code=000,
+            message=paste0("Error in fn_update_database(...): error appending '", table_name, "' table.")))
+        return(error)
+    }
+    if (nrow(list_df$df_duplicated_in_database) > 0) {
+       df = rbind(list_df$df, list_df$df_duplicated_in_database)
     } else {
-        df = df_tmp
+        df = list_df$df
     }
     ### Append the incoming table into the existing table in the database
     if (nrow(df) > 0) {
         if (verbose) {
             print(paste0("Appending the incoming '", table_name, "' table into the database."))
+        }
+        ### Convert the allele frequency table into 2-column genotypes table
+        if (table_name == "genotypes") {
+            list_tables_genotypes = fn_prepare_data_table_and_extract_base_tables(df=df, database=database, table_name=table_name, verbose=verbose)
+            df = list_tables_genotypes$df_possibly_modified
         }
         database = fn_append(df=df, database=database, table_name=table_name, verbose=verbose)
         if (methods::is(database, "dbError")) {
@@ -1775,7 +1749,12 @@ fn_update_database = function(fname_db, df, table_name, verbose=TRUE) {
             if (verbose) {
                 print(paste0("Appending the base tables extracted from the incoming '", table_name, "' table into the database."))
             }
-            list_tables = fn_prepare_data_table_and_extract_base_tables(df=df, database=database, table_name=table_name, verbose=verbose)
+            ### Use the pre-processed `list_tables_genotypes` for the genotypes table above
+            if (table_name == "genotypes") {
+                list_tables = list_tables_genotypes
+            } else {
+                list_tables = fn_prepare_data_table_and_extract_base_tables(df=df, database=database, table_name=table_name, verbose=verbose)
+            }
             ### If all the rows are already present in the existing data table in the database, then we skip appending the associated base tables
             if (!is.null(list_tables)) {
                 for (i in 1:nrow(GLOBAL_df_valid_tables())) {

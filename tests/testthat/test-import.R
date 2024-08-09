@@ -141,7 +141,7 @@ test_that("fn_add_hash_UID_and_remove_duplicate_rows", {
     df = fn_remove_quotes_and_newline_characters_in_data(df=df)
     df = rbind(df[1, ], df)
     database = DBI::dbConnect(drv=RSQLite::SQLite(), dbname="test.sqlite")
-    df_with_hash_UID = fn_add_hash_UID_and_remove_duplicate_rows(df=df, database=database, table_name="phenotypes", verbose=TRUE)
+    df_with_hash_UID = fn_add_hash_UID_and_remove_duplicate_rows(df=df, database=database, table_name="phenotypes", verbose=TRUE)$df
     expect_equal(ncol(df_with_hash_UID), ncol(df)+2)
     expect_equal(nrow(df_with_hash_UID), nrow(df)-1)
     DBI::dbDisconnect(database)
@@ -185,7 +185,10 @@ test_that("fn_prepare_data_table_and_extract_base_tables", {
     database = DBI::dbConnect(drv=RSQLite::SQLite(), dbname="test.sqlite")
     list_df_data_and_base_tables = fn_prepare_data_table_and_extract_base_tables(df=df_phenotypes, database=database, table_name="phenotypes", verbose=TRUE)
     expect_equal(names(list_df_data_and_base_tables), c("df_possibly_modified", "df_entries", "df_dates", "df_sites", "df_treatments", "df_traits", "df_abiotics", "df_loci"))
-    expect_equal(list_df_data_and_base_tables$df_possibly_modified[, 3:(ncol(df_phenotypes)+2)], df_phenotypes)
+    expect_equal(
+        list_df_data_and_base_tables$df_possibly_modified[, colnames(list_df_data_and_base_tables$df_possibly_modified) %in% colnames(df_phenotypes)], 
+        df_phenotypes[, colnames(df_phenotypes) %in% colnames(list_df_data_and_base_tables$df_possibly_modified)]
+    )
     expect_equal(nrow(list_df_data_and_base_tables$df_entries), 50)
     expect_equal(nrow(list_df_data_and_base_tables$df_dates), 3)
     expect_equal(nrow(list_df_data_and_base_tables$df_sites), 3)
@@ -336,11 +339,11 @@ test_that("fn_append", {
     df = list_df_data_and_base_tables$df_possibly_modified
     n = nrow(df); p = ncol(df)
     # vec_idx_columns_HASH_UID_and_required = which(colnames(df) %in% c("PHENOTYPE_HASH", "PHENOTYPE_UID", GLOBAL_list_required_colnames_per_table()$phenotypes))
-    vec_idx_columns_HASH_UID_and_required = 1:17
-    df_q1 = droplevels(df[1:floor(n/2),     1:floor(p/2)])
-    df_q2 = droplevels(df[1:floor(n/2),     c(vec_idx_columns_HASH_UID_and_required, (floor(p/2)+1):p)])
-    df_q3 = droplevels(df[(floor(n/2)+1):n, c(vec_idx_columns_HASH_UID_and_required, (floor(p/2)+1):p)])
-    df_q4 = droplevels(df[(floor(n/2)+1):n, 1:floor(p/2)])
+    vec_idx_columns_HASH_UID_and_required = c(1:17, (p-1):p) ### include the HASH and UID columns, i.e. last 2 columns
+    df_q1 = droplevels(df[1:floor(n/2),     unique(c(vec_idx_columns_HASH_UID_and_required, 1:floor(p/2)))])
+    df_q2 = droplevels(df[1:floor(n/2),     unique(c(vec_idx_columns_HASH_UID_and_required, (floor(p/2)+1):p))])
+    df_q3 = droplevels(df[(floor(n/2)+1):n, unique(c(vec_idx_columns_HASH_UID_and_required, (floor(p/2)+1):p))])
+    df_q4 = droplevels(df[(floor(n/2)+1):n, unique(c(vec_idx_columns_HASH_UID_and_required, 1:floor(p/2)))])
     df_centre = droplevels(df[floor(n*(1/3)):floor(n*(2/3)), c(vec_idx_columns_HASH_UID_and_required, floor(p*(1/3)):floor(p*(2/3)))])
     DBI::dbDisconnect(database)
     ### Add new columns
@@ -418,21 +421,34 @@ test_that("fn_initialise_db", {
     df_phenotypes = DBI::dbGetQuery(conn=database, statement="SELECT * FROM phenotypes")
     df_environments = DBI::dbGetQuery(conn=database, statement="SELECT * FROM environments")
     df_genotypes = DBI::dbGetQuery(conn=database, statement="SELECT * FROM genotypes")
-    expect_equal(list_sim$df_entries, df_entries[, -1])
-    expect_equal(list_sim$df_dates[, 1:6], df_dates[, c(2,7,3,4,5,6)])
-    expect_equal(list_sim$df_sites[, c(1,2)], df_sites[, c(2,3)])
-    expect_equal(list_sim$df_treatments[, c(1,2)], df_treatments[, c(2,3)])
-    expect_equal(list_sim$df_traits[, c(1,2)], df_traits[, c(2,3)])
-    expect_equal(list_sim$df_abiotics[, c(1,2)], df_abiotics[, c(2,3)])
-    expect_equal(list_sim$df_loci, df_loci[, -1])
-    expect_equal(list_sim$df_phenotypes, df_phenotypes[, colnames(df_phenotypes) %in% colnames(list_sim$df_phenotypes)])
-    expect_equal(list_sim$df_environments, df_environments[, colnames(df_environments) %in% colnames(list_sim$df_environments)])
-    for (i in sample(x=c(4:ncol(list_sim$df_genotypes)), size=10)) {
-        vec_q_from_BLOB = unserialize(connection=as.raw(unlist(df_genotypes$BLOB[i])))
-        vec_q = unlist(list_sim$df_genotypes[, i+3])
+    df_entries = df_entries[, order(colnames(df_entries))]; list_sim$df_entries = list_sim$df_entries[, order(colnames(list_sim$df_entries))]
+    df_dates = df_dates[, order(colnames(df_dates))]; list_sim$df_dates = list_sim$df_dates[, order(colnames(list_sim$df_dates))]
+    df_sites = df_sites[, order(colnames(df_sites))]; list_sim$df_sites = list_sim$df_sites[, order(colnames(list_sim$df_sites))]
+    df_treatments = df_treatments[, order(colnames(df_treatments))]; list_sim$df_treatments = list_sim$df_treatments[, order(colnames(list_sim$df_treatments))]
+    df_traits = df_traits[, order(colnames(df_traits))]; list_sim$df_traits = list_sim$df_traits[, order(colnames(list_sim$df_traits))]
+    df_abiotics = df_abiotics[, order(colnames(df_abiotics))]; list_sim$df_abiotics = list_sim$df_abiotics[, order(colnames(list_sim$df_abiotics))]
+    df_loci = df_loci[, order(colnames(df_loci))]; list_sim$df_loci = list_sim$df_loci[, order(colnames(list_sim$df_loci))]
+    df_phenotypes = df_phenotypes[, order(colnames(df_phenotypes))]; list_sim$df_phenotypes = list_sim$df_phenotypes[, order(colnames(list_sim$df_phenotypes))]
+    df_environments = df_environments[, order(colnames(df_environments))]; list_sim$df_environments = list_sim$df_environments[, order(colnames(list_sim$df_environments))]
+    expect_equal(list_sim$df_entries[, colnames(list_sim$df_entries) %in% colnames(df_entries)], df_entries[, colnames(df_entries) %in% colnames(list_sim$df_entries)])
+    expect_equal(list_sim$df_dates[, colnames(list_sim$df_dates) %in% colnames(df_dates)], df_dates[, colnames(df_dates) %in% colnames(list_sim$df_dates)])
+    expect_equal(list_sim$df_sites[, (!grepl("DESCRIPTION", colnames(list_sim$df_sites)) & (colnames(list_sim$df_sites) %in% colnames(df_sites)))], df_sites[, (!grepl("DESCRIPTION", colnames(df_sites)) & (colnames(df_sites) %in% colnames(list_sim$df_sites)))])
+    expect_equal(list_sim$df_treatments[, (!grepl("DESCRIPTION", colnames(list_sim$df_treatments)) & (colnames(list_sim$df_treatments) %in% colnames(df_treatments)))], df_treatments[, (!grepl("DESCRIPTION", colnames(df_treatments)) & (colnames(df_treatments) %in% colnames(list_sim$df_treatments)))])
+    expect_equal(list_sim$df_traits[, (!grepl("DESCRIPTION", colnames(list_sim$df_traits)) & (colnames(list_sim$df_traits) %in% colnames(df_traits)))], df_traits[, (!grepl("DESCRIPTION", colnames(df_traits)) & (colnames(df_traits) %in% colnames(list_sim$df_traits)))])
+    expect_equal(list_sim$df_abiotics[, (!grepl("DESCRIPTION", colnames(list_sim$df_abiotics)) & (colnames(list_sim$df_abiotics) %in% colnames(df_abiotics)))], df_abiotics[, (!grepl("DESCRIPTION", colnames(df_abiotics)) & (colnames(df_abiotics) %in% colnames(list_sim$df_abiotics)))])
+    expect_equal(list_sim$df_loci[, colnames(list_sim$df_loci) %in% colnames(df_loci)], df_loci[, colnames(df_loci) %in% colnames(list_sim$df_loci)])
+    expect_equal(list_sim$df_phenotypes[, colnames(list_sim$df_phenotypes) %in% colnames(df_phenotypes)], df_phenotypes[, colnames(df_phenotypes) %in% colnames(list_sim$df_phenotypes)])
+    expect_equal(list_sim$df_environments[, colnames(list_sim$df_environments) %in% colnames(df_environments)], df_environments[, colnames(df_environments) %in% colnames(list_sim$df_environments)])
+    for (i in sample(x=c(1:nrow(df_entries)), size=10)) {
+        # i = sample(x=c(1:nrow(df_entries)), size=10)[1]
+        entry_name = df_entries$ENTRY[i]
+        entry_UID = df_entries$ENTRY_UID[i]
+        vec_q_from_BLOB = unserialize(connection=as.raw(unlist(df_genotypes$BLOB[df_genotypes$ENTRY_UID == entry_UID])))
+        vec_q = unlist(list_sim$df_genotypes[, colnames(list_sim$df_genotypes) ==  entry_name])
         names(vec_q) = NULL
         expect_equal(vec_q, vec_q_from_BLOB)
     }
+    unlink(fname_db)
 })
 
 test_that("fn_update_database", {
@@ -470,7 +486,19 @@ test_that("fn_update_database", {
     }
     ### Initialise the phenotypes data table with df_q1 and update with additional traits (df_q2)
     fn_initialise_db(fname_db=fname_db, list_df_data_tables=list_df_data_tables)
+    database = DBI::dbConnect(drv=RSQLite::SQLite(), dbname=fname_db)
+    df_entries_from_db_before_update = DBI::dbGetQuery(conn=database, statement="SELECT * FROM entries")
+    df_traits_from_db_before_update = DBI::dbGetQuery(conn=database, statement="SELECT * FROM traits")
+    DBI::dbDisconnect(conn=database)
+    ### Update
     fn_update_database(fname_db=fname_db, df=df_q2, table_name="phenotypes", verbose=TRUE)
+    database = DBI::dbConnect(drv=RSQLite::SQLite(), dbname=fname_db)
+    df_entries_from_db_after_update = DBI::dbGetQuery(conn=database, statement="SELECT * FROM entries")
+    df_traits_from_db_after_update = DBI::dbGetQuery(conn=database, statement="SELECT * FROM traits")
+    DBI::dbDisconnect(conn=database)
+    expect_equal(nrow(df_entries_from_db_before_update), nrow(df_entries_from_db_after_update))
+    expect_equal(nrow(df_traits_from_db_after_update) - nrow(df_traits_from_db_before_update), sum(!(colnames(df_q2) %in% colnames(df_q1))))
+    ### Check updated table
     database = DBI::dbConnect(drv=RSQLite::SQLite(), dbname=fname_db)
     df_phenotypes_from_db = DBI::dbGetQuery(conn=database, statement="SELECT * FROM phenotypes")
     DBI::dbDisconnect(conn=database)

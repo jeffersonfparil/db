@@ -24,7 +24,8 @@ and loci) or data (phenotypes, environments and genotypes) table}
 \value{
 \itemize{
 \item Ok:
-df: data frame without quotes and newline characters
+$df: data frame without quotes and newline characters
+$df_duplicated_in_database: data frame without quotes and newline characters with UID duplicates in the database
 \item Err: dbError
 }
 }
@@ -42,7 +43,7 @@ list_fnames_tables = fn_simulate_tables(
 df = utils::read.delim(list_fnames_tables$fname_phenotypes, header=TRUE)
 database = DBI::dbConnect(drv=RSQLite::SQLite(), dbname="test.sqlite")
 df = fn_add_hash_UID_and_remove_duplicate_rows(df=df, database=database, 
-     table_name="phenotypes", verbose=TRUE)
+     table_name="phenotypes", verbose=TRUE)$df
 DBI::dbDisconnect(database)
 unlink("test.sqlite")
 }

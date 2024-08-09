@@ -132,38 +132,38 @@ fn_create_database_from_xlsx = function(fname_xlsx, fname_db=NULL, fname_genotyp
 #'  - Ok: 0
 #'  - Err: dbError
 #' @examples
-list_fnames_tables = fn_simulate_tables(
-        n_entries=50,
-        n_dates=3,
-        n_sites=3,
-        n_treatments=3,
-        n_loci=10e3,
-        save_data_tables=TRUE)$list_fnames_tables
-list_df_initial = list()
-list_df_update = list()
-for (table_name in GLOBAL_df_valid_tables()$NAME[GLOBAL_df_valid_tables()$CLASS=="data"]) {
-    df = as.data.frame(readxl::read_excel(
-        path=list_fnames_tables$fname_data_tables, 
-        sheet=table_name, 
-        guess_max=round(0.01*.Machine$integer.max)), 
-        check.names=FALSE)
-    n = nrow(df)
-    eval(parse(text=paste0("list_df_initial$", table_name, " = df[1:ceiling(n/2), ]")))
-    eval(parse(text=paste0("list_df_update$", table_name, " = df[(ceiling(n/2)+1):n, ]")))
-}
-fname_xlsx_initial = "test_initial.xlsx"
-fname_xlsx_update = "test_update.xlsx"
-writexl::write_xlsx(x=list_df_initial, path=fname_xlsx_initial)
-writexl::write_xlsx(x=list_df_update, path=fname_xlsx_update)
-### Initialise the database
-fn_create_database_from_xlsx(fname_xlsx=fname_xlsx_initial)
-### Update
-fname_xlsx = fname_xlsx_update
-fname_db = gsub(".xlsx$", ".sqlite", fname_xlsx_initial)
-fn_update_database_from_xlsx(fname_xlsx=fname_xlsx, fname_db=fname_db)
-unlink(fname_xlsx_initial)
-unlink(fname_xlsx_update)
-unlink(fname_db)
+#' list_fnames_tables = fn_simulate_tables(
+#'         n_entries=50,
+#'         n_dates=3,
+#'         n_sites=3,
+#'         n_treatments=3,
+#'         n_loci=10e3,
+#'         save_data_tables=TRUE)$list_fnames_tables
+#' list_df_initial = list()
+#' list_df_update = list()
+#' for (table_name in GLOBAL_df_valid_tables()$NAME[GLOBAL_df_valid_tables()$CLASS=="data"]) {
+#'     df = as.data.frame(readxl::read_excel(
+#'         path=list_fnames_tables$fname_data_tables, 
+#'         sheet=table_name, 
+#'         guess_max=round(0.01*.Machine$integer.max)), 
+#'         check.names=FALSE)
+#'     n = nrow(df)
+#'     eval(parse(text=paste0("list_df_initial$", table_name, " = df[1:ceiling(n/2), ]")))
+#'     eval(parse(text=paste0("list_df_update$", table_name, " = df[(ceiling(n/2)+1):n, ]")))
+#' }
+#' fname_xlsx_initial = "test_initial.xlsx"
+#' fname_xlsx_update = "test_update.xlsx"
+#' writexl::write_xlsx(x=list_df_initial, path=fname_xlsx_initial)
+#' writexl::write_xlsx(x=list_df_update, path=fname_xlsx_update)
+#' ### Initialise the database
+#' fn_create_database_from_xlsx(fname_xlsx=fname_xlsx_initial)
+#' ### Update
+#' fname_xlsx = fname_xlsx_update
+#' fname_db = gsub(".xlsx$", ".sqlite", fname_xlsx_initial)
+#' fn_update_database_from_xlsx(fname_xlsx=fname_xlsx, fname_db=fname_db)
+#' unlink(fname_xlsx_initial)
+#' unlink(fname_xlsx_update)
+#' unlink(fname_db)
 #' @export
 fn_update_database_from_xlsx = function(fname_xlsx, fname_db, fname_genotype_tsv=NULL, verbose=TRUE) {
     ################################################################
@@ -226,7 +226,7 @@ fn_update_database_from_xlsx = function(fname_xlsx, fname_db, fname_genotype_tsv
     list_df_data_tables = list(df_phenotypes=NULL, df_environments=NULL, df_genotypes=NULL)
     error = NULL
     for (table_name in GLOBAL_df_valid_tables()$NAME[GLOBAL_df_valid_tables()$CLASS=="data"]) {
-        # table_name = GLOBAL_df_valid_tables()$NAME[8]
+        # table_name = GLOBAL_df_valid_tables()$NAME[GLOBAL_df_valid_tables()$CLASS=="data"][3]
         if ((table_name == "genotypes") && !is.null(fname_genotype_tsv)) {
             df = utils::read.delim(fname_genotype_tsv, check.names=FALSE)
         } else {
@@ -247,7 +247,7 @@ fn_update_database_from_xlsx = function(fname_xlsx, fname_db, fname_genotype_tsv
         if (nrow(df) > 0) {
             list_df_data_tables[[paste0("df_", table_name)]] = df
         }
-        out = fn_update_database(fname_db=fname_db, df=df, table_name=table_name, verbose=TRUE)
+        out = fn_update_database(fname_db=fname_db, df=df, table_name=table_name, verbose=verbose)
         if (methods::is(out, "dbError")) {
             if (is.null(error)) {
                 error = out
