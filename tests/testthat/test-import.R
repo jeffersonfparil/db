@@ -336,12 +336,11 @@ test_that("fn_append", {
     df = fn_remove_quotes_and_newline_characters_in_data(df=df)
     database = DBI::dbConnect(drv=RSQLite::SQLite(), dbname="test.sqlite")
     ### Prepare the tables
-    list_df_data_and_base_tables = fn_prepare_data_table_and_extract_base_tables(df=df, 
-         database=database, table_name="phenotypes", verbose=TRUE)
+    list_df_data_and_base_tables = fn_prepare_data_table_and_extract_base_tables(df=df, database=database, table_name="phenotypes", verbose=TRUE)
     df = list_df_data_and_base_tables$df_possibly_modified
     n = nrow(df); p = ncol(df)
     # vec_idx_columns_HASH_UID_and_required = which(colnames(df) %in% c("PHENOTYPE_HASH", "PHENOTYPE_UID", GLOBAL_list_required_colnames_per_table()$phenotypes))
-    vec_idx_columns_HASH_UID_and_required = c(1:17, (p-1):p) ### include the HASH and UID columns, i.e. last 2 columns
+    vec_idx_columns_HASH_UID_and_required = unique(c(1:17, grep("_UID$", colnames(df)), grep("_HASH$", colnames(df)))) ### include the HASH and UID columns, i.e. last 2 columns
     df_q1 = droplevels(df[1:floor(n/2),     unique(c(vec_idx_columns_HASH_UID_and_required, 1:floor(p/2)))])
     df_q2 = droplevels(df[1:floor(n/2),     unique(c(vec_idx_columns_HASH_UID_and_required, (floor(p/2)+1):p))])
     df_q3 = droplevels(df[(floor(n/2)+1):n, unique(c(vec_idx_columns_HASH_UID_and_required, (floor(p/2)+1):p))])

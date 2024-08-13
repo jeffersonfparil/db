@@ -42,13 +42,10 @@ test_that("fn_query_and_left_join_tables", {
         save_data_tables=TRUE)$list_fnames_tables
     df_allele_frequency_table = utils::read.delim(list_fnames_tables$fname_genotypes, header=TRUE, check.names=FALSE)
     list_df_data_tables = list(
-        df_phenotypes=utils::read.delim(list_fnames_tables$fname_phenotypes, 
-            header=TRUE),
-        df_environments=utils::read.delim(list_fnames_tables$fname_environments, 
-            header=TRUE),
+        df_phenotypes=utils::read.delim(list_fnames_tables$fname_phenotypes, header=TRUE),
+        df_environments=utils::read.delim(list_fnames_tables$fname_environments, header=TRUE),
         df_genotypes=df_allele_frequency_table)
-    fn_initialise_db(fname_db="test.sqlite", 
-            list_df_data_tables=list_df_data_tables, verbose=TRUE)
+    fn_initialise_db(fname_db="test.sqlite", list_df_data_tables=list_df_data_tables, verbose=TRUE)
     database = DBI::dbConnect(drv=RSQLite::SQLite(), dbname="test.sqlite")
     list_tables_and_filters = list(
         entries=list(
@@ -132,8 +129,7 @@ test_that("fn_deserialise_genotype_data", {
     database = DBI::dbConnect(drv=RSQLite::SQLite(), dbname=fname_db)
     df_genotypes = DBI::dbGetQuery(conn=database, statement="SELECT * FROM genotypes")
     df_allele_frequency_table_SERDE = fn_deserialise_genotype_data(database=database, df_genotypes=df_genotypes, verbose=TRUE)
-    colnames(df_allele_frequency_table_SERDE)[1:3] = colnames(df_allele_frequency_table)[1:3]
-    expect_equal(df_allele_frequency_table_SERDE, df_allele_frequency_table)
+    expect_equal(df_allele_frequency_table_SERDE[, -1:-3], df_allele_frequency_table[, -1:-3])
     DBI::dbDisconnect(database)
     unlink("test.sqlite")
 })

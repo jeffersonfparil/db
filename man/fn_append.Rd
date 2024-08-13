@@ -45,12 +45,16 @@ list_df_data_and_base_tables = fn_prepare_data_table_and_extract_base_tables(df=
      database=database, table_name="phenotypes", verbose=TRUE)
 df = list_df_data_and_base_tables$df_possibly_modified
 n = nrow(df); p = ncol(df)
-vec_idx_columns_HASH_UID_and_required = which(colnames(df) \%in\% c("PHENOTYPE_HASH", "PHENOTYPE_UID",
-     GLOBAL_list_required_colnames_per_table()$phenotypes))
-df_q1 = droplevels(df[1:floor(n/2),     1:floor(p/2)])
-df_q2 = droplevels(df[1:floor(n/2),     c(vec_idx_columns_HASH_UID_and_required, (floor(p/2)+1):p)])
-df_q3 = droplevels(df[(floor(n/2)+1):n, c(vec_idx_columns_HASH_UID_and_required, (floor(p/2)+1):p)])
-df_q4 = droplevels(df[(floor(n/2)+1):n, 1:floor(p/2)])
+vec_idx_columns_HASH_UID_and_required = 
+    unique(c(1:17, grep("_UID$", colnames(df)), grep("_HASH$", colnames(df))))
+df_q1 = droplevels(df[1:floor(n/2),     
+    unique(c(vec_idx_columns_HASH_UID_and_required, 1:floor(p/2)))])
+df_q2 = droplevels(df[1:floor(n/2),     
+    unique(c(vec_idx_columns_HASH_UID_and_required, (floor(p/2)+1):p))])
+df_q3 = droplevels(df[(floor(n/2)+1):n, 
+    unique(c(vec_idx_columns_HASH_UID_and_required, (floor(p/2)+1):p))])
+df_q4 = droplevels(df[(floor(n/2)+1):n, 
+    unique(c(vec_idx_columns_HASH_UID_and_required, 1:floor(p/2)))])
 ### Import the df_q1 into the database
 DBI::dbWriteTable(conn=database, name="phenotypes", value=df_q1)
 ### Add new rows and columns, i.e. df_q3

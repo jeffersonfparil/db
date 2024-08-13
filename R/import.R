@@ -600,7 +600,10 @@ fn_add_hash_UID_and_remove_duplicate_rows = function(df, database, table_name, v
         if (verbose) {
             print("The incoming table is a 'genotypes' data table which does not need hashing and UIDs because row names are already UIDs.")
         }
-        return(df)
+        return(list(
+            df=df,
+            df_duplicated_in_database=df[rep(FALSE, times=nrow(df)), , drop=FALSE]
+        ))
     }
     ### Check input data frame where we rename and remove duplicate columns and/or remove duplicate columns if needed
     if (sum(colnames(df) == toupper(colnames(df))) != ncol(df)) {
@@ -786,15 +789,22 @@ fn_convert_allele_frequency_table_into_blobs_and_dfs = function(
     }
     ### We include both non-overlapping and overlapping rows to find the actual duplicates in the existing database table using the entry names alone,
     ### while keeping the same order as the genotype data
-    df_entries = merge(
-        df_entries,
-        data.frame(
-            ENTRY=c(list_df_entries$df$ENTRY, list_df_entries$df_duplicated_in_database$ENTRY),
-            ENTRY_HASH=c(list_df_entries$df$ENTRY_HASH, list_df_entries$df_duplicated_in_database$ENTRY_HASH),
-            ENTRY_UID=c(list_df_entries$df$ENTRY_UID, list_df_entries$df_duplicated_in_database$ENTRY_UID)
-        ),
-        by="ENTRY"
-    )
+    df_entries$ENTRY_HASH = NA
+    df_entries$ENTRY_UID = NA
+    for (i in 1:nrow(df_entries)) {
+        entry_name = df_entries$ENTRY[i]
+        idx = which(list_df_entries$df_duplicated_in_database$ENTRY == entry_name)
+        if (length(idx) < 1) {next}
+        if (length(idx) < 1) {
+            error = methods::new("dbError",
+                code=000,
+                message=paste0("Error in fn_convert_allele_frequency_table_into_blobs_and_dfs(...): ",
+                "Duplicate entry names is not allowed in the genotype data. Please rectify names."))
+            return(error)
+        }
+        df_entries$ENTRY_HASH[i] = list_df_entries$df_duplicated_in_database$ENTRY_HASH[idx]
+        df_entries$ENTRY_UID[i] = list_df_entries$df_duplicated_in_database$ENTRY_UID[idx]
+    }
     vec_existing_tables = DBI::dbGetQuery(conn=database, statement=paste0("PRAGMA TABLE_LIST"))$name
     if (sum(vec_existing_tables == "entries") == 1) {
         ### Keep only the unique entries in the incoming entries table
@@ -852,7 +862,7 @@ fn_convert_allele_frequency_table_into_blobs_and_dfs = function(
 #' DBI::dbDisconnect(database)
 #' unlink("test.sqlite")
 #' @export
-fn_prepare_data_table_and_extract_base_tables = function(df, database, table_name, do_not_remove_duplicates, verbose=TRUE) {
+fn_prepare_data_table_and_extract_base_tables = function(df, database, table_name, verbose=TRUE) {
     ################################################################
     ### TEST
     # list_fnames_tables = fn_simulate_tables(n_dates=3, n_sites=3, n_treatments=3, save_data_tables=TRUE)$list_fnames_tables
@@ -908,6 +918,8 @@ fn_prepare_data_table_and_extract_base_tables = function(df, database, table_nam
                 table_name, "' table.")))
             return(error)
         }
+        ### Extract the entire data table including the rows duplicated in the existing table in the database
+        df = rbind(list_df$df, list_df$df_duplicated_in_database)
     }
     ### Instantiate the base tables
     df_entries = NULL
@@ -933,8 +945,6 @@ fn_prepare_data_table_and_extract_base_tables = function(df, database, table_nam
                 df_base_table = list_df_genotypes_df_loci_df_entries$df_loci
             } else {
                 ### For "traits", and "abiotics" tables
-                ### Extract the entire data table including the rows duplicated in the existing table in the database
-                df = rbind(list_df$df, list_df$df_duplicated_in_database)
                 vec_idx_column_names = which(!(
                     colnames(df) %in% c(
                         GLOBAL_list_required_colnames_per_table()[[table_name]], 
@@ -1351,12 +1361,16 @@ fn_add_new_columns = function(df, database, table_name, verbose=TRUE) {
 #'      database=database, table_name="phenotypes", verbose=TRUE)
 #' df = list_df_data_and_base_tables$df_possibly_modified
 #' n = nrow(df); p = ncol(df)
-#' vec_idx_columns_HASH_UID_and_required = which(colnames(df) %in% c("PHENOTYPE_HASH", "PHENOTYPE_UID",
-#'      GLOBAL_list_required_colnames_per_table()$phenotypes))
-#' df_q1 = droplevels(df[1:floor(n/2),     1:floor(p/2)])
-#' df_q2 = droplevels(df[1:floor(n/2),     c(vec_idx_columns_HASH_UID_and_required, (floor(p/2)+1):p)])
-#' df_q3 = droplevels(df[(floor(n/2)+1):n, c(vec_idx_columns_HASH_UID_and_required, (floor(p/2)+1):p)])
-#' df_q4 = droplevels(df[(floor(n/2)+1):n, 1:floor(p/2)])
+#' vec_idx_columns_HASH_UID_and_required = 
+#'     unique(c(1:17, grep("_UID$", colnames(df)), grep("_HASH$", colnames(df))))
+#' df_q1 = droplevels(df[1:floor(n/2),     
+#'     unique(c(vec_idx_columns_HASH_UID_and_required, 1:floor(p/2)))])
+#' df_q2 = droplevels(df[1:floor(n/2),     
+#'     unique(c(vec_idx_columns_HASH_UID_and_required, (floor(p/2)+1):p))])
+#' df_q3 = droplevels(df[(floor(n/2)+1):n, 
+#'     unique(c(vec_idx_columns_HASH_UID_and_required, (floor(p/2)+1):p))])
+#' df_q4 = droplevels(df[(floor(n/2)+1):n, 
+#'     unique(c(vec_idx_columns_HASH_UID_and_required, 1:floor(p/2)))])
 #' ### Import the df_q1 into the database
 #' DBI::dbWriteTable(conn=database, name="phenotypes", value=df_q1)
 #' ### Add new rows and columns, i.e. df_q3
@@ -1539,7 +1553,7 @@ fn_initialise_db = function(fname_db, list_df_data_tables, verbose=TRUE) {
     database = DBI::dbConnect(drv=RSQLite::SQLite(), dbname=fname_db)
     ### Prepare the data tables and extract the base tables from the data tables
     for (table_name in GLOBAL_df_valid_tables()$NAME[GLOBAL_df_valid_tables()$CLASS=="data"]) {
-        # table_name = GLOBAL_df_valid_tables()$NAME[GLOBAL_df_valid_tables()$CLASS=="data"][3]
+        # table_name = GLOBAL_df_valid_tables()$NAME[GLOBAL_df_valid_tables()$CLASS=="data"][1]
         df = list_df_data_tables[[paste0("df_", table_name)]]
         if (is.null(df)) {
             df = list_df_data_tables[[table_name]]
