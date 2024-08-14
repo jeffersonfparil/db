@@ -1558,7 +1558,7 @@ fn_initialise_db = function(fname_db, list_df_data_tables, verbose=TRUE) {
         if (is.null(df)) {
             df = list_df_data_tables[[table_name]]
         }
-        if (is.null(df)) {
+        if (nrow(df)==0) {
             ### Skip if we have no data table
             next
         }
