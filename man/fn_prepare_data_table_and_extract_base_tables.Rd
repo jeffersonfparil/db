@@ -8,7 +8,6 @@ fn_prepare_data_table_and_extract_base_tables(
   df,
   database,
   table_name,
-  do_not_remove_duplicates,
   verbose = TRUE
 )
 }
