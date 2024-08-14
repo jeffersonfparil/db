@@ -4,12 +4,12 @@
 test_that("fn_create_database_from_xlsx_or_tsv", {
     set.seed(123)
     list_fnames_tables  = fn_simulate_tables(
-            n_entries=50,
-            n_dates=3,
-            n_sites=3,
-            n_treatments=3,
-            n_loci=10e3,
-            save_data_tables=TRUE)$list_fnames_tables
+        n_entries=50,
+        n_dates=3,
+        n_sites=3,
+        n_treatments=3,
+        n_loci=10e3,
+        save_data_tables=TRUE)$list_fnames_tables
     fname_xlsx = list_fnames_tables$fname_data_tables
     fname_phenotypes_tsv = list_fnames_tables$fname_phenotypes
     fname_environments_tsv = list_fnames_tables$fname_environments

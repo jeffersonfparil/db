@@ -13,6 +13,26 @@ A simple SQLite database in R for genomic prediction.
 devtools::install_github("jeffersonfparil/db")
 ```
 
+## Quickstart
+
+```R
+set.seed(123)
+list_fnames_tables  = db::fn_simulate_tables(
+    n_entries=50,
+    n_dates=3,
+    n_sites=3,
+    n_treatments=3,
+    n_loci=10e3,
+    save_data_tables=TRUE)$list_fnames_tables
+fname_phenotypes_tsv = list_fnames_tables$fname_phenotypes
+fname_environments_tsv = list_fnames_tables$fname_environments
+db::fn_create_database_from_xlsx_or_tsv(fname_db="test.sqlite", fname_phenotypes_tsv=fname_phenotypes_tsv, fname_environments_tsv=fname_environments_tsv)
+
+ok_2 = fn_update_database_from_xlsx_or_tsv(fname_db=fname_db, fname_xlsx=NULL, fname_phenotypes_tsv=fname_phenotypes_tsv, fname_environments_tsv=fname_environments_tsv, fname_genotypes_tsv=fname_genotypes_tsv)
+
+
+```
+
 ## Schema
 
 Each database will correspond to a single species with the schema below. **The 7 base tables are shown on top while the 3 data tables are at the bottom**. Base tables have fixed number of columns while the data tables have a dynamic number of tables where user can continually add more columns.
@@ -163,10 +183,10 @@ erDiagram
 2. [POSIX time](https://en.wikipedia.org/wiki/Unix_time) is used to have a low memory-footprint date-time relator across tables with the dates table detailing the human-readable dates, times and FVI seasons.
 3. Requirements for input data frames should allow the automatic updates of the base tables (i.e. entries, dates, traits, sites, treatments, abiotics, and/or loci) so that there is no need to manually upload theses information which should reduce error.
 4. Duplicate entries should be avoided by table-specific UIDs (except in the genotype table which uses the entries: ENTRY_UID as well as the loci UID: LOCUS_UID for its rows and column names). These UIDs should relate to specific genotypes, dates, traits, sites, treatments, abiotic variables, loci, and the sensible combinations of them, e.g. genotype-date-site-treatment-replication combination in the phenotypes table should define a row-specific PHENOTYPE_UID.
-5. There is one database for each species because rarely do we need to analyse multiple species at a single trial (maybe not in the future looking at mixed pastures). This limitation is caused by the simple encoding of the loci and genotypes table where each column in the former refers to a locus which should be present across all entries which may span millions of columns.
-6. There are 3 input tables which are imported into the database from which the base tables will be extracted from. The data tables are the:
+5. There is one database for each species because rarely do we need to analyse multiple species at a single trial (maybe not in the future looking at mixed pastures). This limitation is caused by the simple encoding of the loci and genotypes table where each column in the former refers to a locus which should be present across all entries which may span hundreds of thousands to millions of loci.
+6. There are 3 input or data tables which are imported into the database from which the base tables will be extracted from. The data tables are the:
     - phenotypes (contains the phenotype data for multiple traits including the dates, sites replications associated with the trials/measurements), 
     - environments (contains the climatic and edpahic measurements from the trial sites including the date, time and location of the measurements) and 
     - genotypes (contain the allele frequencies per entry across genome-wide loci) tables.
-7. Hashing is used to determine initial uniqueness of each row of the data tables (i.e. phenotypes, and environments table, excluding the genotypes tables - the uniqueness of which will be based upon the entry, type, population and cultivar identities in the the entries table for hashing efficiency) upon importation into the database so that we can efficiently compare existing and incoming data after which we assign integer UIDs for more efficient queries.
+7. Hashing is used to determine initial uniqueness of each row of the data tables (i.e. phenotypes, and environments table, excluding the genotypes tables - the uniqueness of which will be based upon the required columns per table for hashing efficiency) upon importation into the database so that we can efficiently compare existing and incoming data after which we assign integer UIDs for more efficient queries.
 

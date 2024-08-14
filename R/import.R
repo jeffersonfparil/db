@@ -1559,6 +1559,10 @@ fn_initialise_db = function(fname_db, list_df_data_tables, verbose=TRUE) {
             df = list_df_data_tables[[table_name]]
         }
         if (is.null(df)) {
+            ### Skip if we have no data table
+            next
+        }
+        if (is.null(df)) {
             error = methods::new("dbError",
                 code=000,
                 message=paste0("Error in fn_initialise_db(...): '", table_name, "' table does not exist in the input list_df_data_tables."))
