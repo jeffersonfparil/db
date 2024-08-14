@@ -1553,12 +1553,12 @@ fn_initialise_db = function(fname_db, list_df_data_tables, verbose=TRUE) {
     database = DBI::dbConnect(drv=RSQLite::SQLite(), dbname=fname_db)
     ### Prepare the data tables and extract the base tables from the data tables
     for (table_name in GLOBAL_df_valid_tables()$NAME[GLOBAL_df_valid_tables()$CLASS=="data"]) {
-        # table_name = GLOBAL_df_valid_tables()$NAME[GLOBAL_df_valid_tables()$CLASS=="data"][1]
+        # table_name = GLOBAL_df_valid_tables()$NAME[GLOBAL_df_valid_tables()$CLASS=="data"][3]
         df = list_df_data_tables[[paste0("df_", table_name)]]
         if (is.null(df)) {
             df = list_df_data_tables[[table_name]]
         }
-        if (nrow(df)==0) {
+        if (is.null(df)) {
             ### Skip if we have no data table
             next
         }
@@ -1627,10 +1627,14 @@ fn_initialise_db = function(fname_db, list_df_data_tables, verbose=TRUE) {
         if (verbose) {
             print(paste0("Creating unique indexes for the ", table_name_prefix, "_UID column in the ", table_name, " table."))
         }
-        if (table_name != "genotypes") {
-            DBI::dbExecute(conn=database, statement=paste0("CREATE UNIQUE INDEX IDX_", table_name_prefix, " ON ", table_name, "(", table_name_prefix, "_UID)"))
-        } else {
-            DBI::dbExecute(conn=database, statement=paste0("CREATE UNIQUE INDEX IDX_", table_name_prefix, " ON ", table_name, "(ENTRY_UID)"))
+        ### Check if the table has already been initialised
+        vec_table_names = DBI::dbGetQuery(conn=database, statement="PRAGMA TABLE_LIST")$name
+        if (sum(vec_table_names %in% table_name) > 0) {
+            if (table_name != "genotypes") {
+                DBI::dbExecute(conn=database, statement=paste0("CREATE UNIQUE INDEX IDX_", table_name_prefix, " ON ", table_name, "(", table_name_prefix, "_UID)"))
+            } else {
+                DBI::dbExecute(conn=database, statement=paste0("CREATE UNIQUE INDEX IDX_", table_name_prefix, " ON ", table_name, "(ENTRY_UID)"))
+            }
         }
     }
     if (verbose) {

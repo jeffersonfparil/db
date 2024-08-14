@@ -10,7 +10,7 @@ A simple SQLite database in R for genomic prediction.
 ## Installation
 
 ```R
-devtools::install_github("jeffersonfparil/db")
+devtools::install_github("jeffersonfparil/db", upgrade="never")
 ```
 
 ## Quickstart

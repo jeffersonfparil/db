@@ -364,6 +364,8 @@ fn_update_database_from_xlsx_or_tsv = function(
                     df = utils::read.delim(fname_environments_tsv, header=TRUE, sep="\t", check.names=FALSE)
                 } else if ((table_name == "genotypes") & !is.null(fname_genotypes_tsv)) {
                     df = utils::read.delim(fname_genotypes_tsv, header=TRUE, sep="\t", check.names=FALSE)
+                } else {
+                    df = data.frame()
                 }
             }
         }
