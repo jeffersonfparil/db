@@ -1760,6 +1760,11 @@ fn_update_database = function(fname_db, df, table_name, verbose=TRUE) {
             df = list_tables_genotypes$df_possibly_modified
         }
         database = fn_append(df=df, database=database, table_name=table_name, verbose=verbose)
+        ### Initialise the data table if it has not been initialised yet
+        if (methods::is(database, "dbError") && grepl("Please initialise the table first", database@message)) {
+            database = DBI::dbConnect(drv=RSQLite::SQLite(), dbname=fname_db)
+            DBI::dbWriteTable(conn=database, name=table_name, value=df)
+        }
         if (methods::is(database, "dbError")) {
             error = chain(database, methods::new("dbError",
                 code=000,
@@ -1787,6 +1792,11 @@ fn_update_database = function(fname_db, df, table_name, verbose=TRUE) {
                     if (is.null(df_base_table)) {next}
                     if (nrow(df_base_table) > 0) {
                         database = fn_append(df=df_base_table, database=database, table_name=base_table_name, verbose=verbose)
+                        ### Initialise the base table if it has not been initialised yet
+                        if (methods::is(database, "dbError") && grepl("Please initialise the table first", database@message)) {
+                            database = DBI::dbConnect(drv=RSQLite::SQLite(), dbname=fname_db)
+                            DBI::dbWriteTable(conn=database, name=base_table_name, value=df_base_table)
+                        }
                         if (methods::is(database, "dbError")) {
                             error = chain(database, methods::new("dbError",
                                 code=000,

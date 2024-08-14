@@ -26,11 +26,18 @@ list_fnames_tables  = db::fn_simulate_tables(
     save_data_tables=TRUE)$list_fnames_tables
 fname_phenotypes_tsv = list_fnames_tables$fname_phenotypes
 fname_environments_tsv = list_fnames_tables$fname_environments
-db::fn_create_database_from_xlsx_or_tsv(fname_db="test.sqlite", fname_phenotypes_tsv=fname_phenotypes_tsv, fname_environments_tsv=fname_environments_tsv)
-
-ok_2 = fn_update_database_from_xlsx_or_tsv(fname_db=fname_db, fname_xlsx=NULL, fname_phenotypes_tsv=fname_phenotypes_tsv, fname_environments_tsv=fname_environments_tsv, fname_genotypes_tsv=fname_genotypes_tsv)
-
-
+fname_genotypes_tsv = list_fnames_tables$fname_genotypes
+fname_db="test.sqlite"
+db::fn_create_database_from_xlsx_or_tsv(fname_db=fname_db, fname_phenotypes_tsv=fname_phenotypes_tsv, fname_environments_tsv=fname_environments_tsv)
+database = DBI::dbConnect(drv=RSQLite::SQLite(), dbname=fname_db)
+df_tables_before_update = DBI::dbGetQuery(conn=database, statement="PRAGMA TABLE_LIST")
+DBI::dbDisconnect(conn=database)
+db::fn_update_database_from_xlsx_or_tsv(fname_db=fname_db, fname_genotypes_tsv=fname_genotypes_tsv)
+database = DBI::dbConnect(drv=RSQLite::SQLite(), dbname=fname_db)
+df_tables_after_update = DBI::dbGetQuery(conn=database, statement="PRAGMA TABLE_LIST")
+DBI::dbDisconnect(conn=database)
+print(df_tables_before_update)
+print(df_tables_after_update)
 ```
 
 ## Schema

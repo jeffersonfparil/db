@@ -371,6 +371,8 @@ fn_update_database_from_xlsx_or_tsv = function(
         }
         if (nrow(df) > 0) {
             list_df_data_tables[[paste0("df_", table_name)]] = df
+        } else {
+            next
         }
         out = fn_update_database(fname_db=fname_db, df=df, table_name=table_name, verbose=verbose)
         if (methods::is(out, "dbError")) {
