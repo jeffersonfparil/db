@@ -125,7 +125,7 @@ fn_create_database_from_xlsx_or_tsv = function(
     ### Extract the data tables
     list_df_data_tables = list(df_phenotypes=NULL, df_environments=NULL, df_genotypes=NULL)
     for (table_name in GLOBAL_df_valid_tables()$NAME[GLOBAL_df_valid_tables()$CLASS=="data"]) {
-        # table_name = GLOBAL_df_valid_tables()$NAME[8]
+        # table_name = GLOBAL_df_valid_tables()$NAME[10]
         if ((table_name == "genotypes") & !is.null(fname_genotypes_tsv)) {
             df = utils::read.delim(fname_genotypes_tsv, check.names=FALSE)
         } else {
@@ -153,6 +153,8 @@ fn_create_database_from_xlsx_or_tsv = function(
                     df = utils::read.delim(fname_environments_tsv, header=TRUE, sep="\t", check.names=FALSE)
                 } else if ((table_name == "genotypes") & !is.null(fname_genotypes_tsv)) {
                     df = utils::read.delim(fname_genotypes_tsv, header=TRUE, sep="\t", check.names=FALSE)
+                } else {
+                    df = data.frame()
                 }
             }
         }
