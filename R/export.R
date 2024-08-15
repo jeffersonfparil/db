@@ -185,7 +185,10 @@ fn_check_export_inputs = function(database, table_name, list_filters=NULL, vec_c
 #'          maximum values, but these can be the same value, and the same numeric column 
 #'          can be included multiple times with various ranges which is equivalent to 
 #'          using a vector of values or ranges of values to filter. 
-#'          A text column is always specified by a vector of strings.
+#'          A text column is always specified by a vector of strings. 
+#'          Note that if the "genotypes" table is requested and if some requested ENTRY_UIDs
+#'          are duplicated or missing, then resulting rows from the genotypes table will 
+#'          be entirely of NAs.
 #' @param unique_column_name a common column name across all included tables in 
 #'  `list_tables_and_filters` which we are requiring to be unique after filtering. 
 #'  (Default=NULL)
@@ -683,10 +686,10 @@ fn_deserialise_genotype_data = function(database, df_genotypes, verbose=TRUE) {
     df_entries = DBI::dbGetQuery(conn=database, statement="SELECT * FROM entries")
     df_loci = DBI::dbGetQuery(conn=database, statement="SELECT * FROM loci")
     vec_q = unserialize(as.raw(unlist(df_genotypes$BLOB[1])))
-    n = nrow(df_genotypes)
+    vec_entry_names = sort(unique(df_entries$ENTRY[df_entries$ENTRY_UID %in% df_genotypes$ENTRY_UID]))
+    n = length(vec_entry_names)
     p = length(vec_q)
     df_allele_frequency_table = data.frame(chr=df_loci$CHROMOSOME, pos=df_loci$POSITION_PER_CHROMOSOME, allele=df_loci$ALLELE, matrix(NA, nrow=p, ncol=n))
-    vec_entry_names = df_entries$ENTRY[df_entries$ENTRY_UID %in% df_genotypes$ENTRY_UID]
     colnames(df_allele_frequency_table)[-1:-3] = vec_entry_names
     if (verbose) {pb = utils::txtProgressBar(min=0, max=n, style=3)}
     for (i in 1:n) {

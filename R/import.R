@@ -1572,7 +1572,7 @@ fn_initialise_db = function(fname_db, list_df_data_tables, verbose=TRUE) {
     database = DBI::dbConnect(drv=RSQLite::SQLite(), dbname=fname_db)
     ### Prepare the data tables and extract the base tables from the data tables
     for (table_name in GLOBAL_df_valid_tables()$NAME[GLOBAL_df_valid_tables()$CLASS=="data"]) {
-        # table_name = GLOBAL_df_valid_tables()$NAME[GLOBAL_df_valid_tables()$CLASS=="data"][3]
+        # table_name = GLOBAL_df_valid_tables()$NAME[GLOBAL_df_valid_tables()$CLASS=="data"][1]
         df = list_df_data_tables[[paste0("df_", table_name)]]
         if (is.null(df)) {
             df = list_df_data_tables[[table_name]]

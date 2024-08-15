@@ -125,7 +125,7 @@ fn_create_database_from_xlsx_or_tsv = function(
     ### Extract the data tables
     list_df_data_tables = list(df_phenotypes=NULL, df_environments=NULL, df_genotypes=NULL)
     for (table_name in GLOBAL_df_valid_tables()$NAME[GLOBAL_df_valid_tables()$CLASS=="data"]) {
-        # table_name = GLOBAL_df_valid_tables()$NAME[10]
+        # table_name = GLOBAL_df_valid_tables()$NAME[GLOBAL_df_valid_tables()$CLASS=="data"][1]
         if ((table_name == "genotypes") & !is.null(fname_genotypes_tsv)) {
             df = utils::read.delim(fname_genotypes_tsv, check.names=FALSE)
         } else {
@@ -401,4 +401,110 @@ fn_update_database_from_xlsx_or_tsv = function(
         DBI::dbDisconnect(conn=database)
     }
     return(0)
+}
+
+fn_export_phenotypes_and_genotypes_data_from_database = function(
+    fname_db, 
+    vec_ENTRY_UIDs=c("*"), 
+    vec_REPLICATIONS=c("*"),
+    vec_TREATMENT=c("*"),
+    vec_SITE=c("*"),
+    vec_YEAR=c("*"),
+    vec_MONTH=c("*"),
+    vec_DAY=c("*"),
+    vec_trait_names=c("*"),
+    bool_remove_entries_with_missing_genotype_data=TRUE,
+    verbose=TRUE
+) {
+    ################################################################
+    ### TEST
+    # fname_xlsx = fn_simulate_tables(
+    #     n_entries=50,
+    #     n_dates=3,
+    #     n_sites=3,
+    #     n_treatments=3,
+    #     n_loci=10e3,
+    #     save_data_tables=TRUE)$list_fnames_tables$fname_data_tables
+    # fname_db = "test.sqlite"
+    # fn_create_database_from_xlsx_or_tsv(fname_db=fname_db, fname_xlsx=fname_xlsx, overwrite=TRUE)
+    # vec_ENTRY_UIDs = c("*")
+    # vec_REPLICATION = c("*")
+    # vec_TREATMENT = c("*")
+    # vec_SITE = c("*")
+    # vec_YEAR = c("*")
+    # vec_MONTH = c("*")
+    # vec_DAY = c("*")
+    # vec_trait_names = c("*")
+    # verbose = TRUE
+    ################################################################
+    database = DBI::dbConnect(drv=RSQLite::SQLite(), dbname=fname_db)
+    if (vec_ENTRY_UIDs=="*") {
+        vec_ENTRY_UIDs = DBI::dbGetQuery(conn=database, statement="SELECT ENTRY_UID FROM entries")[,1]
+    }
+    if (vec_REPLICATION=="*") {
+        vec_REPLICATION = unique(DBI::dbGetQuery(conn=database, statement="SELECT REPLICATION FROM phenotypes")[,1])
+    }
+    if (vec_TREATMENT=="*") {
+        vec_TREATMENT = unique(DBI::dbGetQuery(conn=database, statement="SELECT TREATMENT FROM phenotypes")[,1])
+    }
+    if (vec_SITE=="*") {
+        vec_SITE = unique(DBI::dbGetQuery(conn=database, statement="SELECT SITE FROM phenotypes")[,1])
+    }
+    if (vec_YEAR=="*") {
+        vec_YEAR = unique(DBI::dbGetQuery(conn=database, statement="SELECT YEAR FROM phenotypes")[,1])
+    }
+    if (vec_MONTH=="*") {
+        vec_MONTH = unique(DBI::dbGetQuery(conn=database, statement="SELECT MONTH FROM phenotypes")[,1])
+    }
+    if (vec_DAY=="*") {
+        vec_DAY = unique(DBI::dbGetQuery(conn=database, statement="SELECT DAY FROM phenotypes")[,1])
+    }
+    if (vec_trait_names=="*") {
+        vec_trait_names = unique(DBI::dbGetQuery(conn=database, statement="SELECT TRAIT FROM traits")[,1])
+    }
+    list_tables_and_filters = list(
+        entries=list(
+            key_names=c("ENTRY_UID"), 
+            column_names=c("*"),
+            list_filters=list(ENTRY_UID=vec_ENTRY_UIDs)
+        ),
+        phenotypes=list(
+            key_names=c("ENTRY_UID"),
+            column_names=vec_trait_names,
+            list_filters=list(
+                REPLICATION=vec_REPLICATION,
+                TREATMENT=vec_TREATMENT,
+                SITE=vec_SITE,
+                YEAR=vec_YEAR,
+                MONTH=vec_MONTH,
+                DAY=vec_DAY
+            )
+        ),
+        genotypes=list(
+            key_names=c("ENTRY_UID"),
+            column_names=c("*"),
+            list_filters=NULL
+        )
+    )
+    if (verbose) {print("Extracting and merging data from phenotypes and genotypes data from the database...")}
+    df_query = db::fn_query_and_left_join_tables(database=database, list_tables_and_filters=list_tables_and_filters, unique_column_name=NULL, verbose=verbose)
+    if (bool_remove_entries_with_missing_genotype_data) {
+        if (verbose) {print("Removing entries without genotype data...")}
+        vec_idx_retain = which(!is.na(df_query[, ncol(df_query)-1]))
+
+
+
+
+
+        
+    }
+    if (verbose) {print("Extracting the phenotypes table...")}
+    df_phenotypes = df_query[, (ncol(df_query)-1):ncol(df_query)]
+    if (verbose) {print("Deserialising the genotype data into an allele frequency table...")}
+    df_allele_frequencies_table = db::fn_deserialise_genotype_data(database=database, df_genotypes=df_query[, (ncol(df_query)-1):ncol(df_query)], verbose=verbose)
+    str(df_allele_frequencies_table)
+    DBI::dbDisconnect(conn=database)
+
+    return()
+
 }
