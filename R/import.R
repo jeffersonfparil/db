@@ -1453,12 +1453,12 @@ fn_append = function(df, database, table_name, verbose=TRUE) {
         return(database)
     }
     ### Add new columns (Note that we need to do this before adding new rows)
-    if (list_set_classification_of_columns$n_columns_exclusive_to_existing_table > 0) {
+    if (list_set_classification_of_columns$n_columns_exclusive_to_incoming_table > 0) {
         database = fn_add_new_columns(df=df, database=database, table_name=table_name, verbose=verbose)
         if (methods::is(database, "dbError")) {
             error = chain(database, methods::new("dbError",
                 code=000,
-                message=paste0("Error in fn_append(...): error adding new columns into incoming '", table_name, "' table.")))
+                message=paste0("Error in fn_append(...): error adding new columns from incoming '", table_name, "' table.")))
             return(error)
         }
     }
@@ -1547,7 +1547,26 @@ fn_initialise_db = function(fname_db, list_df_data_tables, verbose=TRUE) {
         unlink(fname_db)
     }
     if (verbose) {
-        print(paste0("Initialising the database: '", fname_db, "' where the "))
+        vec_data_table_names = c()
+        vec_data_table_nrows = c()
+        vec_data_table_ncols = c()
+        for (table_name in GLOBAL_df_valid_tables()$NAME[GLOBAL_df_valid_tables()$CLASS=="data"]) {
+            df = list_df_data_tables[[paste0("df_", table_name)]]
+            if (is.null(df)) {
+                df = list_df_data_tables[[table_name]]
+            }
+            vec_data_table_names = c(vec_data_table_names, table_name)
+            if (!is.null(df)) {
+                vec_data_table_nrows = c(vec_data_table_nrows, nrow(df))
+                vec_data_table_ncols = c(vec_data_table_ncols, ncol(df))
+            } else {
+                vec_data_table_nrows = c(vec_data_table_nrows, 0)
+                vec_data_table_ncols = c(vec_data_table_ncols, 0)
+            }
+        }
+        print(paste0("Initialising the database: '", fname_db, "' with the following data tables: ", 
+            paste0("     - ", vec_data_table_names, ": nrows=", vec_data_table_nrows, ", ncols=", vec_data_table_ncols)
+        ))
     }
     ### Create and open the connection to the database
     database = DBI::dbConnect(drv=RSQLite::SQLite(), dbname=fname_db)
