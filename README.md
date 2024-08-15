@@ -15,6 +15,10 @@ devtools::install_github("jeffersonfparil/db", upgrade="never")
 
 ## Quickstart
 
+### 0. Simulate some data:
+
+<details><summary>R code</summary>
+
 ```R
 set.seed(123)
 list_fnames_tables  = db::fn_simulate_tables(
@@ -28,10 +32,28 @@ fname_phenotypes_tsv = list_fnames_tables$fname_phenotypes
 fname_environments_tsv = list_fnames_tables$fname_environments
 fname_genotypes_tsv = list_fnames_tables$fname_genotypes
 fname_db="test.sqlite"
+```
+
+</details>
+
+### 1. Initialise the database:
+
+<details><summary>R code</summary>
+
+```R
 db::fn_create_database_from_xlsx_or_tsv(fname_db=fname_db, fname_phenotypes_tsv=fname_phenotypes_tsv, fname_environments_tsv=fname_environments_tsv)
 database = DBI::dbConnect(drv=RSQLite::SQLite(), dbname=fname_db)
 df_tables_before_update = DBI::dbGetQuery(conn=database, statement="PRAGMA TABLE_LIST")
 DBI::dbDisconnect(conn=database)
+```
+
+</details>
+
+### 2. Update the database:
+
+<details><summary>R code</summary>
+
+```R
 db::fn_update_database_from_xlsx_or_tsv(fname_db=fname_db, fname_genotypes_tsv=fname_genotypes_tsv)
 database = DBI::dbConnect(drv=RSQLite::SQLite(), dbname=fname_db)
 df_tables_after_update = DBI::dbGetQuery(conn=database, statement="PRAGMA TABLE_LIST")
@@ -39,6 +61,67 @@ DBI::dbDisconnect(conn=database)
 print(df_tables_before_update)
 print(df_tables_after_update)
 ```
+
+</details>
+
+### 3. Summarise a table in the database:
+
+<details><summary>R code</summary>
+
+```R
+database = DBI::dbConnect(drv=RSQLite::SQLite(), dbname=fname_db)
+table_name = "phenotypes"
+list_filters=list(
+    REPLICATION="*",
+    MONTH=c(1, 12)
+)
+list_counts = db::fn_assess_df_subsets(database=database, table_name=table_name, list_filters=list_filters, vec_column_names_to_count=NULL, verbose=TRUE)
+DBI::dbDisconnect(conn=database)
+print(list_counts)
+```
+
+</details>
+
+### 4. Export data:
+
+<details><summary>R code</summary>
+
+```R
+database = DBI::dbConnect(drv=RSQLite::SQLite(), dbname=fname_db)
+df_entries = DBI::dbGetQuery(conn=database, statement="SELECT * FROM entries")
+df_sites = DBI::dbGetQuery(conn=database, statement="SELECT * FROM sites")
+df_dates = DBI::dbGetQuery(conn=database, statement="SELECT * FROM dates")
+df_treatments = DBI::dbGetQuery(conn=database, statement="SELECT * FROM treatments")
+df_traits = DBI::dbGetQuery(conn=database, statement="SELECT * FROM traits")
+list_tables_and_filters = list(
+    entries=list(
+        key_names=c("ENTRY_UID"), 
+        column_names=c("*"),
+        list_filters=list(
+            ENTRY=sample(df_entries$ENTRY, 10),
+            POPULATION=sample(df_entries$POPULATION, 5))
+    ),
+    phenotypes=list(
+        key_names=c("ENTRY_UID", "REPLICATION", "TREATMENT", "SITE", "FVI_YEAR_SEASON"),
+        column_names=sample(df_traits$TRAIT, 5),
+        list_filters=list(
+            REPLICATION="rep_1",
+            SITE=sample(df_sites$SITE, 1),
+            POSIX_DATE_TIME=sample(df_dates$POSIX_DATE_TIME, 1),
+            TREATMENT=sample(df_treatments$TREATMENT, 1))
+    ),
+     genotypes=list(
+        key_names=c("ENTRY_UID"),
+        column_names=c("*"),
+        list_filters=NULL
+    )
+)
+df_query = db::fn_query_and_left_join_tables(database=database, list_tables_and_filters=list_tables_and_filters, unique_column_name=NULL)
+DBI::dbDisconnect(conn=database)
+print(df_query)
+```
+
+</details>
 
 ## Schema
 

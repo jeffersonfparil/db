@@ -685,7 +685,7 @@ fn_deserialise_genotype_data = function(database, df_genotypes, verbose=TRUE) {
     vec_q = unserialize(as.raw(unlist(df_genotypes$BLOB[1])))
     n = nrow(df_genotypes)
     p = length(vec_q)
-    df_allele_frequency_table = data.frame(df_loci[, -1:-2], matrix(NA, nrow=p, ncol=n))
+    df_allele_frequency_table = data.frame(chr=df_loci$CHROMOSOME, pos=df_loci$POSITION_PER_CHROMOSOME, allele=df_loci$ALLELE, matrix(NA, nrow=p, ncol=n))
     vec_entry_names = df_entries$ENTRY[df_entries$ENTRY_UID %in% df_genotypes$ENTRY_UID]
     colnames(df_allele_frequency_table)[-1:-3] = vec_entry_names
     if (verbose) {pb = utils::txtProgressBar(min=0, max=n, style=3)}
