@@ -197,3 +197,8 @@ erDiagram
     - genotypes (contain the allele frequencies per entry across genome-wide loci) tables.
 7. Hashing is used to determine initial uniqueness of each row of the data tables (i.e. phenotypes, and environments table, excluding the genotypes tables - the uniqueness of which will be based upon the required columns per table for hashing efficiency) upon importation into the database so that we can efficiently compare existing and incoming data after which we assign integer UIDs for more efficient queries.
 
+## Documentation
+
+```R
+??db::fn_
+```
