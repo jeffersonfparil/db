@@ -117,8 +117,10 @@ list_tables_and_filters = list(
     )
 )
 df_query = db::fn_query_and_left_join_tables(database=database, list_tables_and_filters=list_tables_and_filters, unique_column_name=NULL)
-DBI::dbDisconnect(conn=database)
 print(df_query)
+df_allele_frequencies_table = db::fn_deserialise_genotype_data(database=database, df_genotypes=df_query[, (ncol(df_query)-1):ncol(df_query)], verbose=TRUE)
+str(df_allele_frequencies_table)
+DBI::dbDisconnect(conn=database)
 ```
 
 </details>
