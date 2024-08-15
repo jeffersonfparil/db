@@ -1430,10 +1430,10 @@ fn_append = function(df, database, table_name, verbose=TRUE) {
     df = fn_remove_quotes_and_newline_characters_in_data(df, verbose=FALSE)
     ### If the existing table is the same as the incoming table, then there is nothing for us to do
     if (
-        (list_set_classification_of_rows$n_intersecting_rows == list_set_classification_of_rows$n_existing_rows) &&
-        (list_set_classification_of_rows$n_intersecting_rows == list_set_classification_of_rows$n_incoming_rows) &&
         (list_set_classification_of_rows$n_rows_exclusive_to_existing_table == 0) &&
-        (list_set_classification_of_columns$n_columns_exclusive_to_existing_table == 0)
+        (list_set_classification_of_columns$n_columns_exclusive_to_existing_table == 0) &&
+        (list_set_classification_of_rows$n_rows_exclusive_to_incoming_table == 0) &&
+        (list_set_classification_of_columns$n_columns_exclusive_to_incoming_table == 0)
     ) {
         if (verbose) {print(paste0("The existing and incoming '", table_name, "' tables are identical. No data was uploaded."))}
         return(database)
@@ -1447,7 +1447,7 @@ fn_append = function(df, database, table_name, verbose=TRUE) {
     ) {
         if (verbose) {
             print(paste0("The existing '", table_name, "' table is a proper subset of the incoming table."))
-            print(paste0("Overwiting the existing '", table_name, "' table."))
+            print(paste0("Overwriting the existing '", table_name, "' table."))
         }
         DBI::dbWriteTable(conn=database, name=table_name, value=df, overwrite=TRUE)
         return(database)

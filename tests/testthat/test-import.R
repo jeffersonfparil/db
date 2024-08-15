@@ -347,11 +347,11 @@ test_that("fn_append", {
     df_q4 = droplevels(df[(floor(n/2)+1):n, unique(c(vec_idx_columns_HASH_UID_and_required, 1:floor(p/2)))])
     df_centre = droplevels(df[floor(n*(1/3)):floor(n*(2/3)), c(vec_idx_columns_HASH_UID_and_required, floor(p*(1/3)):floor(p*(2/3)))])
     DBI::dbDisconnect(database)
-    ### Add new columns
+    ### Add new columns with complete overlap with existing table
+    df_q1_U_q2 = cbind(df_q1, df_q2[, (length(vec_idx_columns_HASH_UID_and_required)+1):ncol(df_q2)]); rownames(df_q1_U_q2) = NULL
     database = DBI::dbConnect(drv=RSQLite::SQLite(), dbname="test.sqlite")
     DBI::dbWriteTable(conn=database, name="phenotypes", value=df_q1)
-    database = fn_append(df=df_q2, database=database, table_name="phenotypes", verbose=TRUE)
-    df_q1_U_q2 = cbind(df_q1, df_q2[, (length(vec_idx_columns_HASH_UID_and_required)+1):ncol(df_q2)])
+    database = fn_append(df=df_q1_U_q2, database=database, table_name="phenotypes", verbose=TRUE)
     df_from_db = DBI::dbGetQuery(conn=database, statement="SELECT * FROM phenotypes")
     expect_equal(df_q1_U_q2, df_from_db)
     DBI::dbDisconnect(database)
