@@ -558,10 +558,13 @@ fn_export_phenotypes_and_genotypes_data_from_database = function(
         )
     )
     ### Check output files
+    query_hash = rlang::hash(list_tables_and_filters)
     if (is.null(fname_basename_out)) {
-        query_hash = rlang::hash(list_tables_and_filters)
         fname_phenotypes_tsv = gsub(".sqlite$", paste0("-exported_phenotypes-hash_", query_hash, ".tsv"), fname_db)
         fname_genotypes_tsv = gsub(".sqlite$", paste0("-exported_genotypes-hash_", query_hash, ".tsv"), fname_db)
+    } else {
+        fname_phenotypes_tsv = paste0(fname_basename_out, "-exported_phenotypes-hash_", query_hash, ".tsv")
+        fname_genotypes_tsv = paste0(fname_basename_out, "-exported_genotypes-hash_", query_hash, ".tsv")
     }
     if (!overwrite & file.exists(fname_phenotypes_tsv)) {
         error = methods::new("dbError",
