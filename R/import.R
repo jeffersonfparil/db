@@ -1827,6 +1827,11 @@ fn_update_database = function(fname_db, df, table_name, verbose=TRUE) {
                     df_base_table  = list_tables[[paste0("df_", base_table_name)]]
                     if (is.null(df_base_table)) {next}
                     if (nrow(df_base_table) > 0) {
+                        if ((base_table_name == "entries") & (table_name == "genotypes")) {
+                            ### Skip appending entries base table if the data table is genotypes as the genotypes table only has the ENTRY_UID info, and
+                            ### the CULTIVAR, POPULATION, and TYPE info are all unknown (UNK).
+                            next
+                        }
                         database = fn_append(df=df_base_table, database=database, table_name=base_table_name, verbose=verbose)
                         ### Initialise the base table if it has not been initialised yet
                         if (methods::is(database, "dbError") && grepl("Please initialise the table first", database@message)) {
