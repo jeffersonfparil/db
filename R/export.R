@@ -363,6 +363,7 @@ fn_query_and_left_join_tables = function(database, list_tables_and_filters, uniq
                 vec_y = list_filters_2[[column]]
                 ### If we have 2 elements then we assume a range if the elements are numeric
                 if ((length(vec_y) == 2) && is.numeric(vec_y)) {
+                    vec_y = sort(vec_y) ### Make sure the range is from minimum to maximum
                     vec_string_filters_2 = c(vec_string_filters_2, paste(paste0(table_name_to_the_right, ".", column), "BETWEEN", vec_y[1], "AND", vec_y[2]))
                 } else {
                     if (is.numeric(vec_y)) {
@@ -686,14 +687,14 @@ fn_deserialise_genotype_data = function(database, df_genotypes, verbose=TRUE) {
     df_entries = DBI::dbGetQuery(conn=database, statement="SELECT * FROM entries")
     df_loci = DBI::dbGetQuery(conn=database, statement="SELECT * FROM loci")
     vec_q = unserialize(as.raw(unlist(df_genotypes$BLOB[1])))
-    vec_entry_names = sort(unique(df_entries$ENTRY[df_entries$ENTRY_UID %in% df_genotypes$ENTRY_UID]))
+    vec_entry_names = unique(df_entries$ENTRY[df_entries$ENTRY_UID %in% df_genotypes$ENTRY_UID])
     n = length(vec_entry_names)
     p = length(vec_q)
     df_allele_frequency_table = data.frame(chr=df_loci$CHROMOSOME, pos=df_loci$POSITION_PER_CHROMOSOME, allele=df_loci$ALLELE, matrix(NA, nrow=p, ncol=n))
     colnames(df_allele_frequency_table)[-1:-3] = vec_entry_names
     if (verbose) {pb = utils::txtProgressBar(min=0, max=n, style=3)}
     for (i in 1:n) {
-        # i = 1
+        # i = 2
         entry_name = vec_entry_names[i]
         eval(parse(text=paste0("df_allele_frequency_table$`", entry_name, "` = unserialize(as.raw(unlist(df_genotypes$BLOB[i])))")))
         if (verbose) {utils::setTxtProgressBar(pb, i)}

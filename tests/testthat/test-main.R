@@ -74,4 +74,27 @@ test_that("fn_update_database_from_xlsx_or_tsv", {
     unlink(fname_db)
 })
 
-
+test_that("fn_export_phenotypes_and_genotypes_data_from_database", {
+    set.seed(42069)
+    fname_xlsx = fn_simulate_tables(
+        n_entries=50,
+        n_dates=3,
+        n_sites=3,
+        n_treatments=3,
+        n_loci=10e3,
+        save_data_tables=TRUE)$list_fnames_tables$fname_data_tables
+    fname_db = "test.sqlite"
+    fn_create_database_from_xlsx_or_tsv(fname_db=fname_db, fname_xlsx=fname_xlsx, overwrite=TRUE)
+    database = DBI::dbConnect(drv=RSQLite::SQLite(), dbname=fname_db)
+    vec_entry_names = sample(DBI::dbGetQuery(conn=database, statement="SELECT ENTRY FROM entries")[, 1], size=3)
+    DBI::dbDisconnect(conn=database)
+    list_fnames_out = fn_export_phenotypes_and_genotypes_data_from_database(fname_db=fname_db, vec_ENTRY=vec_entry_names, overwrite=TRUE)
+    expect_equal(length(list_fnames_out), 2)
+    err_1 = fn_export_phenotypes_and_genotypes_data_from_database(fname_db=fname_db, vec_ENTRY=vec_entry_names, overwrite=FALSE)
+    err_2 = fn_export_phenotypes_and_genotypes_data_from_database(fname_db=fname_db, vec_ENTRY=c("non-existent entry name"), overwrite=TRUE)
+    expect_equal(methods::is(err_1, "dbError"), TRUE)
+    expect_equal(methods::is(err_2, "dbError"), TRUE)
+    unlink("test.sqlite")
+    unlink(list_fnames_out$fname_phenotypes)
+    unlink(list_fnames_out$fname_genotypes)
+})

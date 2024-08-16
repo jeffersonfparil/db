@@ -235,6 +235,9 @@ fn_remove_quotes_and_newline_characters_in_data = function(df, verbose=TRUE) {
     }
     for (j in 1:ncol(df)) {
         # j = 1
+        ### Rename column names
+        colnames(df)[j] = gsub('"', "", gsub("'", "", gsub("\\n", "", gsub("\\r", "", colnames(df)[j]))))
+        ### Rename non-numeric/string columns
         x = df[, j]
         if (!is.numeric(x)) {
             df[, j] = gsub('"', "", gsub("'", "", gsub("\\n", "", gsub("\\r", "", x))))
@@ -1572,7 +1575,7 @@ fn_initialise_db = function(fname_db, list_df_data_tables, verbose=TRUE) {
     database = DBI::dbConnect(drv=RSQLite::SQLite(), dbname=fname_db)
     ### Prepare the data tables and extract the base tables from the data tables
     for (table_name in GLOBAL_df_valid_tables()$NAME[GLOBAL_df_valid_tables()$CLASS=="data"]) {
-        # table_name = GLOBAL_df_valid_tables()$NAME[GLOBAL_df_valid_tables()$CLASS=="data"][1]
+        # table_name = GLOBAL_df_valid_tables()$NAME[GLOBAL_df_valid_tables()$CLASS=="data"][3]
         df = list_df_data_tables[[paste0("df_", table_name)]]
         if (is.null(df)) {
             df = list_df_data_tables[[table_name]]
@@ -1657,7 +1660,20 @@ fn_initialise_db = function(fname_db, list_df_data_tables, verbose=TRUE) {
         }
     }
     if (verbose) {
+        print("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@")
+        print("Initialised database contents:")
         print(DBI::dbGetQuery(conn=database, statement="PRAGMA TABLE_LIST"))
+        print("Entries table:")
+        print(DBI::dbGetQuery(conn=database, statement="SELECT * FROM entries"))
+        print("Sites table:")
+        print(DBI::dbGetQuery(conn=database, statement="SELECT * FROM sites"))
+        print("Dates table:")
+        print(DBI::dbGetQuery(conn=database, statement="SELECT * FROM dates"))
+        print("Traits table:")
+        print(DBI::dbGetQuery(conn=database, statement="SELECT * FROM traits"))
+        print("Abiotics table:")
+        print(DBI::dbGetQuery(conn=database, statement="SELECT * FROM abiotics"))
+        print("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@")
     }
     DBI::dbDisconnect(conn=database)
     return(0)
@@ -1827,6 +1843,22 @@ fn_update_database = function(fname_db, df, table_name, verbose=TRUE) {
                 }
             }
         }
+    }
+    if (verbose) {
+        print("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@")
+        print("Updated database contents:")
+        print(DBI::dbGetQuery(conn=database, statement="PRAGMA TABLE_LIST"))
+        print("Entries table:")
+        print(DBI::dbGetQuery(conn=database, statement="SELECT * FROM entries"))
+        print("Sites table:")
+        print(DBI::dbGetQuery(conn=database, statement="SELECT * FROM sites"))
+        print("Dates table:")
+        print(DBI::dbGetQuery(conn=database, statement="SELECT * FROM dates"))
+        print("Traits table:")
+        print(DBI::dbGetQuery(conn=database, statement="SELECT * FROM traits"))
+        print("Abiotics table:")
+        print(DBI::dbGetQuery(conn=database, statement="SELECT * FROM abiotics"))
+        print("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@")
     }
     DBI::dbDisconnect(conn=database)
     return(0)

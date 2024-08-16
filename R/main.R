@@ -48,6 +48,8 @@ fn_create_database_from_xlsx_or_tsv = function(
     # list_fnames_tables = fn_simulate_tables(n_dates=3, n_sites=3, n_treatments=3, save_data_tables=TRUE)$list_fnames_tables
     # fname_xlsx = list_fnames_tables$fname_data_tables
     # fname_db = NULL
+    # fname_phenotypes_tsv = NULL
+    # fname_environments_tsv = NULL
     # fname_genotypes_tsv = NULL
     # overwrite = TRUE
     # verbose = TRUE
@@ -403,21 +405,65 @@ fn_update_database_from_xlsx_or_tsv = function(
     return(0)
 }
 
+#' Export phenotype and genotype data from the database using vectors of 
+#' @param fname_db name of the SQLite database file.
+#' @param vec_ENTRY vector of entry names to extract. (Default=c("*"))
+#' @param vec_REPLICATION vector of replications to extract. (Default=c("*"))
+#' @param vec_TREATMENT vector of treatments to extract. (Default=c("*"))
+#' @param vec_SITE vector of sites to extract. (Default=c("*"))
+#' @param vec_YEAR vector of years to extract. (Default=c("*"))
+#' @param vec_MONTH vector of months to extract. (Default=c("*"))
+#' @param vec_DAY vector of days to extract. (Default=c("*"))
+#' @param vec_trait_names vector of trait names to include in the phenotypes table. (Default=c("*"))
+#' @param fname_basename_out base name of the output/queried phenotype and genotype files. (Default=NULL)
+#' @param overwrite Overwrite the queried/output phenotypes and genotypes files? (Default=FALSE)
+#' @param verbose Show messages? (Default=TRUE)
+#' @returns
+#'  - Ok: 
+#'      $fname_phenotypes_tsv: name of the output/queried phenotypes table file. 
+#'          This file is tab-delimited.
+#'      $fname_genotypes_tsv: name of the output/queried allele frequency table file. 
+#'          This is a tab-delimited file with a header line and the first 3 columns refer to the 
+#'          chromosome (chr), position (pos), and allele (allele), with subsequent columns referring 
+#'          to the allele frequencies of a sample.
+#'  - Err: dbError
+#' @examples
+#' fname_xlsx = fn_simulate_tables(
+#'     n_entries=50,
+#'     n_dates=3,
+#'     n_sites=3,
+#'     n_treatments=3,
+#'     n_loci=10e3,
+#'     save_data_tables=TRUE)$list_fnames_tables$fname_data_tables
+#' fname_db = "test.sqlite"
+#' fn_create_database_from_xlsx_or_tsv(fname_db=fname_db, fname_xlsx=fname_xlsx, overwrite=TRUE)
+#' database = DBI::dbConnect(drv=RSQLite::SQLite(), dbname=fname_db)
+#' vec_entry_names = sample(DBI::dbGetQuery(conn=database, 
+#'      statement="SELECT ENTRY FROM entries")[, 1], size=3)
+#' DBI::dbDisconnect(conn=database)
+#' list_fnames_out = fn_export_phenotypes_and_genotypes_data_from_database(
+#'      fname_db=fname_db, 
+#'      vec_ENTRY=vec_entry_names)
+#' unlink(list_fnames_out$fname_phenotypes)
+#' unlink(list_fnames_out$fname_genotypes)
+#' @export
 fn_export_phenotypes_and_genotypes_data_from_database = function(
     fname_db, 
-    vec_ENTRY_UIDs=c("*"), 
-    vec_REPLICATIONS=c("*"),
+    vec_ENTRY=c("*"), 
+    vec_REPLICATION=c("*"),
     vec_TREATMENT=c("*"),
     vec_SITE=c("*"),
     vec_YEAR=c("*"),
     vec_MONTH=c("*"),
     vec_DAY=c("*"),
     vec_trait_names=c("*"),
-    bool_remove_entries_with_missing_genotype_data=TRUE,
+    fname_basename_out=NULL,
+    overwrite=FALSE,
     verbose=TRUE
 ) {
     ################################################################
     ### TEST
+    # set.seed(42069)
     # fname_xlsx = fn_simulate_tables(
     #     n_entries=50,
     #     n_dates=3,
@@ -427,7 +473,7 @@ fn_export_phenotypes_and_genotypes_data_from_database = function(
     #     save_data_tables=TRUE)$list_fnames_tables$fname_data_tables
     # fname_db = "test.sqlite"
     # fn_create_database_from_xlsx_or_tsv(fname_db=fname_db, fname_xlsx=fname_xlsx, overwrite=TRUE)
-    # vec_ENTRY_UIDs = c("*")
+    # vec_ENTRY = c("*")
     # vec_REPLICATION = c("*")
     # vec_TREATMENT = c("*")
     # vec_SITE = c("*")
@@ -435,42 +481,67 @@ fn_export_phenotypes_and_genotypes_data_from_database = function(
     # vec_MONTH = c("*")
     # vec_DAY = c("*")
     # vec_trait_names = c("*")
+    # fname_basename_out = NULL
+    # overwrite = TRUE
     # verbose = TRUE
     ################################################################
-    database = DBI::dbConnect(drv=RSQLite::SQLite(), dbname=fname_db)
-    if (vec_ENTRY_UIDs=="*") {
-        vec_ENTRY_UIDs = DBI::dbGetQuery(conn=database, statement="SELECT ENTRY_UID FROM entries")[,1]
+    ### Check database file
+    if (!file.exists(fname_db)) {
+        error = methods::new("dbError",
+            code=000,
+            message=paste0("The database: ", fname_db, " does not exist."))
+        return(error)
     }
-    if (vec_REPLICATION=="*") {
+    ### Open the database connection
+    database = DBI::dbConnect(drv=RSQLite::SQLite(), dbname=fname_db)
+    ### Define the query vectors if defaults were used
+    if (vec_ENTRY[1]=="*") {
+        vec_ENTRY = DBI::dbGetQuery(conn=database, statement="SELECT ENTRY FROM entries")[,1]
+    }
+    if (vec_REPLICATION[1]=="*") {
         vec_REPLICATION = unique(DBI::dbGetQuery(conn=database, statement="SELECT REPLICATION FROM phenotypes")[,1])
     }
-    if (vec_TREATMENT=="*") {
+    if (vec_TREATMENT[1]=="*") {
         vec_TREATMENT = unique(DBI::dbGetQuery(conn=database, statement="SELECT TREATMENT FROM phenotypes")[,1])
     }
-    if (vec_SITE=="*") {
+    if (vec_SITE[1]=="*") {
         vec_SITE = unique(DBI::dbGetQuery(conn=database, statement="SELECT SITE FROM phenotypes")[,1])
     }
-    if (vec_YEAR=="*") {
+    if (vec_YEAR[1]=="*") {
         vec_YEAR = unique(DBI::dbGetQuery(conn=database, statement="SELECT YEAR FROM phenotypes")[,1])
     }
-    if (vec_MONTH=="*") {
+    if (vec_MONTH[1]=="*") {
         vec_MONTH = unique(DBI::dbGetQuery(conn=database, statement="SELECT MONTH FROM phenotypes")[,1])
     }
-    if (vec_DAY=="*") {
+    if (vec_DAY[1]=="*") {
         vec_DAY = unique(DBI::dbGetQuery(conn=database, statement="SELECT DAY FROM phenotypes")[,1])
     }
-    if (vec_trait_names=="*") {
+    if (vec_trait_names[1]=="*") {
         vec_trait_names = unique(DBI::dbGetQuery(conn=database, statement="SELECT TRAIT FROM traits")[,1])
     }
+    ### Extract the corresponding entry UIDs of the entry names
+    df_entries = DBI::dbGetQuery(conn=database, statement="SELECT * FROM entries")
+    vec_ENTRY_UID = df_entries$ENTRY_UID[df_entries$ENTRY %in% vec_ENTRY]
+    if (length(vec_ENTRY_UID) == 0) {
+        if (verbose) {
+            print(paste0("Error: the requested entries do not exist in the database: ", paste(vec_ENTRY, collapse=", ")))
+            print("Error: the requested entries do not exist in the database.")
+        }
+        error = methods::new("dbError",
+            code=000,
+            message=paste0("Error: the requested entries do not exist in the database"))
+        return(error)
+    }
+    ### Define the list of table filters for querying
     list_tables_and_filters = list(
         entries=list(
             key_names=c("ENTRY_UID"), 
             column_names=c("*"),
-            list_filters=list(ENTRY_UID=vec_ENTRY_UIDs)
+            list_filters=list(ENTRY_UID=vec_ENTRY_UID)
         ),
         phenotypes=list(
             key_names=c("ENTRY_UID"),
-            column_names=vec_trait_names,
+            column_names=unique(c("REPLICATION", "TREATMENT", "SITE", "YEAR", "MONTH", "DAY", vec_trait_names)),
             list_filters=list(
                 REPLICATION=vec_REPLICATION,
                 TREATMENT=vec_TREATMENT,
@@ -486,25 +557,62 @@ fn_export_phenotypes_and_genotypes_data_from_database = function(
             list_filters=NULL
         )
     )
+    ### Check output files
+    if (is.null(fname_basename_out)) {
+        query_hash = rlang::hash(list_tables_and_filters)
+        fname_phenotypes_tsv = gsub(".sqlite$", paste0("-exported_phenotypes-hash_", query_hash, ".tsv"), fname_db)
+        fname_genotypes_tsv = gsub(".sqlite$", paste0("-exported_genotypes-hash_", query_hash, ".tsv"), fname_db)
+    }
+    if (!overwrite & file.exists(fname_phenotypes_tsv)) {
+        error = methods::new("dbError",
+            code=000,
+            message=paste0("Error: the queried phenotypes file: ", fname_phenotypes_tsv, " exists. Use a different output filename or set overwrite=TRUE."))
+        return(error)
+    }
+    if (!overwrite & file.exists(fname_genotypes_tsv)) {
+        error = methods::new("dbError",
+            code=000,
+            message=paste0("Error: the queried genotypes file: ", fname_genotypes_tsv, " exists. Use a different output filename or set overwrite=TRUE."))
+        return(error)
+    }
     if (verbose) {print("Extracting and merging data from phenotypes and genotypes data from the database...")}
     df_query = db::fn_query_and_left_join_tables(database=database, list_tables_and_filters=list_tables_and_filters, unique_column_name=NULL, verbose=verbose)
-    if (bool_remove_entries_with_missing_genotype_data) {
-        if (verbose) {print("Removing entries without genotype data...")}
-        vec_idx_retain = which(!is.na(df_query[, ncol(df_query)-1]))
-
-
-
-
-
-        
+    if (methods::is(df_query, "dbError")) {
+        return(df_query)
+    }
+    if (nrow(df_query) == 0) {
+        if (verbose) {
+            print("Error: no data in the database matching the following requirements: ")
+            print(list_tables_and_filters)
+        }
+        error = methods::new("dbError",
+            code=000,
+            message=paste0("Error: no data in the database matching the following requirements: ", list_tables_and_filters))
+        return(error)
     }
     if (verbose) {print("Extracting the phenotypes table...")}
-    df_phenotypes = df_query[, (ncol(df_query)-1):ncol(df_query)]
-    if (verbose) {print("Deserialising the genotype data into an allele frequency table...")}
-    df_allele_frequencies_table = db::fn_deserialise_genotype_data(database=database, df_genotypes=df_query[, (ncol(df_query)-1):ncol(df_query)], verbose=verbose)
-    str(df_allele_frequencies_table)
+    df_phenotypes = df_query[, 1:(ncol(df_query)-2), drop=FALSE]
+    if (verbose) {
+        print("Deserialising the genotype data into an allele frequency table...")
+        print("Removing entries without genotype data...")
+    }
+    vec_idx_retain = which(!is.na(df_query[, ncol(df_query)-1]))
+    df_genotypes = df_query[vec_idx_retain, (ncol(df_query)-1):ncol(df_query), drop=FALSE]
+    df_allele_frequencies_table = db::fn_deserialise_genotype_data(database=database, df_genotypes=df_genotypes, verbose=verbose)
     DBI::dbDisconnect(conn=database)
+    if (verbose) {print("Save queried phenotypes and allele frequency table...")}
+    utils::write.table(df_phenotypes, file=fname_phenotypes_tsv, sep="\t", row.names=FALSE, col.names=TRUE, quote=FALSE)
+    utils::write.table(df_allele_frequencies_table, file=fname_genotypes_tsv, sep="\t", row.names=FALSE, col.names=TRUE, quote=FALSE)
+    if (verbose) {
+        print(paste0("Queried phenotypes: ", fname_phenotypes_tsv))
+        print(paste0("Queried genotypes: ", fname_genotypes_tsv))
+    }
+    return(list(
+        fname_phenotypes_tsv=fname_phenotypes_tsv,
+        fname_genotypes_tsv=fname_genotypes_tsv
+    ))
+}
 
-    return()
-
+fn_export_phenotypes_environments_and_genotypes_data_from_database = function() {
+    print("TODO: export all 3 data tables from the database.")
 }

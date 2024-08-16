@@ -4,5 +4,7 @@ inst/
 _libs/
 shell.nix
 test.sqlite
+test-exported_genotypes-hash_*.tsv
+test-exported_genotypes-hash_*.tsv
 .Rprofile
 conda.yml

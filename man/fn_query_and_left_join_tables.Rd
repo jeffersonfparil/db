@@ -26,7 +26,10 @@ A numeric column is always specified as a range of values, i.e. minimum and
 maximum values, but these can be the same value, and the same numeric column
 can be included multiple times with various ranges which is equivalent to
 using a vector of values or ranges of values to filter.
-A text column is always specified by a vector of strings.}
+A text column is always specified by a vector of strings.
+Note that if the "genotypes" table is requested and if some requested ENTRY_UIDs
+are duplicated or missing, then resulting rows from the genotypes table will
+be entirely of NAs.}
 
 \item{unique_column_name}{a common column name across all included tables in
 \code{list_tables_and_filters} which we are requiring to be unique after filtering.
