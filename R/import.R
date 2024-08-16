@@ -362,13 +362,14 @@ fn_add_POSIX_time = function(df, database, table_name, bool_add_FVI_year_season=
         vec_idx_early_spring = which((df$MONTH >= 8) & (df$MONTH <= 9))
         vec_idx_late_spring = which((df$MONTH >= 10) & (df$MONTH <= 11))
         vec_idx_summer_ending_this_year = which(df$MONTH == 12)
-        df$YEAR[vec_idx_summer_starting_last_year] = df$YEAR[vec_idx_summer_starting_last_year] - 1 ### Adjust the year of the summer which started last to the year before for ease of understanding
-        df$FVI_YEAR_SEASON[vec_idx_summer_starting_last_year] = paste0(df$YEAR[vec_idx_summer_starting_last_year], "-SUMMER")
-        df$FVI_YEAR_SEASON[vec_idx_autumn] = paste0(df$YEAR[vec_idx_autumn], "-AUTUMN")
-        df$FVI_YEAR_SEASON[vec_idx_winter] = paste0(df$YEAR[vec_idx_winter], "-WINTER")
-        df$FVI_YEAR_SEASON[vec_idx_early_spring] = paste0(df$YEAR[vec_idx_early_spring], "-EARLY_SPRING")
-        df$FVI_YEAR_SEASON[vec_idx_late_spring] = paste0(df$YEAR[vec_idx_late_spring], "-LATE_SPRING")
-        df$FVI_YEAR_SEASON[vec_idx_summer_ending_this_year] = paste0(df$YEAR[vec_idx_summer_ending_this_year], "-SUMMER")
+        vec_YEAR = df$YEAR
+        vec_YEAR[vec_idx_summer_starting_last_year] = vec_YEAR[vec_idx_summer_starting_last_year] - 1 ### Adjust the year of the summer which started last to the year before for ease of understanding
+        df$FVI_YEAR_SEASON[vec_idx_summer_starting_last_year] = paste0(vec_YEAR[vec_idx_summer_starting_last_year], "-SUMMER")
+        df$FVI_YEAR_SEASON[vec_idx_autumn] = paste0(vec_YEAR[vec_idx_autumn], "-AUTUMN")
+        df$FVI_YEAR_SEASON[vec_idx_winter] = paste0(vec_YEAR[vec_idx_winter], "-WINTER")
+        df$FVI_YEAR_SEASON[vec_idx_early_spring] = paste0(vec_YEAR[vec_idx_early_spring], "-EARLY_SPRING")
+        df$FVI_YEAR_SEASON[vec_idx_late_spring] = paste0(vec_YEAR[vec_idx_late_spring], "-LATE_SPRING")
+        df$FVI_YEAR_SEASON[vec_idx_summer_ending_this_year] = paste0(vec_YEAR[vec_idx_summer_ending_this_year], "-SUMMER")
     }
     ### Output
     return(df)
