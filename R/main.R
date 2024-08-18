@@ -174,7 +174,7 @@ fn_create_database_from_xlsx_or_tsv = function(
         database = DBI::dbConnect(drv=RSQLite::SQLite(), dbname=fname_db)
         for (table_name in GLOBAL_df_valid_tables()$NAME) {
             # table_name = GLOBAL_df_valid_tables()$NAME[1]
-            df_table_info_summary = DBI::dbGetQuery(conn=database, statement=paste0("PRAGMA TABLE_INFO(", table_name, ")"))[, 2:3]
+            df_table_info_summary = DBI::dbGetQuery(conn=database, statement=sprintf("PRAGMA TABLE_INFO('%s')", table_name))[, 2:3]
             print("#########################")
             print(table_name)
             print("#########################")
@@ -394,7 +394,7 @@ fn_update_database_from_xlsx_or_tsv = function(
         database = DBI::dbConnect(drv=RSQLite::SQLite(), dbname=fname_db)
         for (table_name in GLOBAL_df_valid_tables()$NAME) {
             # table_name = GLOBAL_df_valid_tables()$NAME[1]
-            df_table_info_summary = DBI::dbGetQuery(conn=database, statement=paste0("PRAGMA TABLE_INFO(", table_name, ")"))[, 2:3]
+            df_table_info_summary = DBI::dbGetQuery(conn=database, statement=sprintf("PRAGMA TABLE_INFO('%s')", table_name))[, 2:3]
             print("#########################")
             print(table_name)
             print("#########################")
@@ -617,5 +617,32 @@ fn_export_phenotypes_and_genotypes_data_from_database = function(
 }
 
 fn_export_phenotypes_environments_and_genotypes_data_from_database = function() {
-    print("TODO: export all 3 data tables from the database.")
+    ################################################################
+    ### TEST
+    # set.seed(42069)
+    # fname_xlsx = fn_simulate_tables(
+    #     n_entries=50,
+    #     n_dates=3,
+    #     n_sites=3,
+    #     n_treatments=3,
+    #     n_loci=10e3,
+    #     save_data_tables=TRUE)$list_fnames_tables$fname_data_tables
+    # fname_db = "test.sqlite"
+    # fn_create_database_from_xlsx_or_tsv(fname_db=fname_db, fname_xlsx=fname_xlsx, overwrite=TRUE)
+    # vec_ENTRY = c("*")
+    # vec_REPLICATION = c("*")
+    # vec_TREATMENT = c("*")
+    # vec_SITE = c("*")
+    # vec_YEAR = c("*")
+    # vec_MONTH = c("*")
+    # vec_DAY = c("*")
+    # vec_trait_names = c("*")
+    # fname_basename_out = NULL
+    # overwrite = TRUE
+    # verbose = TRUE
+    ################################################################
+    # database = DBI::dbConnect(drv=RSQLite::SQLite(), dbname=fname_db)
+    # df_query = DBI::dbGetQuery(conn=database, statement="SELECT * FROM abiotics")
+    # DBI::dbDisconnect(conn=database)
+    
 }

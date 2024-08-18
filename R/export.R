@@ -148,7 +148,7 @@ fn_check_export_inputs = function(database, table_name, list_filters=NULL, vec_c
         if (!is.null(unique_column_name)) {
             vec_requested_column_names = c(vec_requested_column_names, unique_column_name)
         }
-        vec_existing_column_names = DBI::dbGetQuery(conn=database, statement=paste0("PRAGMA TABLE_INFO(", table_name, ")"))$name
+        vec_existing_column_names = DBI::dbGetQuery(conn=database, statement=sprintf("PRAGMA TABLE_INFO('%s')", table_name))$name
         vec_missing_column_names = c()
         for (column_name in vec_requested_column_names) {
             # column_name = vec_requested_column_names[1]
@@ -286,7 +286,17 @@ fn_query_and_left_join_tables = function(database, list_tables_and_filters, uniq
     # unique_column_name=NULL
     # verbose = TRUE
     ################################################################
+    ### Validate table names
     vec_table_names = names(list_tables_and_filters)
+    if (prod(vec_table_names %in% GLOBAL_df_valid_tables()$NAME) == 0) {
+        error = methods::new("dbError",
+            code=000,
+            message=paste0("Error in fn_query_and_left_join_tables(...): ",
+            "at least one unexpected table name in the list of filters: ", 
+            paste(names(list_tables_and_filters), collapse=", ")))
+        return(error)
+    }
+    ### Define the SQL statement
     if (length(vec_table_names) > 1) {
         vec_range_i = c(1:(length(vec_table_names)-1))
     } else {

@@ -406,7 +406,7 @@ fn_rename_columns_remove_duplicate_columns_and_check_column_type_mismatch = func
 ) {
     ################################################################
     ### TEST
-    # list_fnames_tables = fn_simulate_tables(n_dates=3, n_sites=3, n_treatments=3, save_data_tables=TRUE)$list_fnames_tables
+    # list_fnames_tables = fn_simulate_tables(n_entries=50, n_dates=3, n_sites=3, n_treatments=3, n_loci=10e3, save_data_tables=TRUE)$list_fnames_tables
     # df = utils::read.delim(list_fnames_tables$fname_environments, header=TRUE)
     # database = DBI::dbConnect(drv=RSQLite::SQLite(), dbname="test.sqlite")
     # table_name = "environments"
@@ -502,7 +502,7 @@ fn_rename_columns_remove_duplicate_columns_and_check_column_type_mismatch = func
     }
     ### Identify intersection between existing and incoming column names
     vec_incoming_column_names = colnames(df)
-    df_existing_table_info = DBI::dbGetQuery(conn=database, statement=paste0("PRAGMA TABLE_INFO(", table_name, ")"))
+    df_existing_table_info = DBI::dbGetQuery(conn=database, statement=sprintf("PRAGMA TABLE_INFO('%s')", table_name))
     vec_existing_column_names = df_existing_table_info$name
     vec_common_column_names = vec_incoming_column_names[which(vec_incoming_column_names %in% vec_existing_column_names)]
     if (verbose) {
@@ -651,7 +651,7 @@ fn_add_hash_UID_and_remove_duplicate_rows = function(df, database, table_name, v
     vec_existing_tables = DBI::dbGetQuery(conn=database, statement=paste0("PRAGMA TABLE_LIST"))$name
     if (sum(vec_existing_tables %in% table_name) == 1) {
         ### Check if hash column exists
-        vec_existing_column_names = DBI::dbGetQuery(conn=database, statement=paste0("PRAGMA TABLE_INFO(", table_name, ")"))$name
+        vec_existing_column_names = DBI::dbGetQuery(conn=database, statement=sprintf("PRAGMA TABLE_INFO('%s')", table_name))$name
         if (sum(vec_existing_column_names %in% paste0(prefix_of_HASH_and_UID_columns, "_HASH")) == 0) {
             error = methods::new("dbError",
                 code=000,
@@ -735,7 +735,7 @@ fn_convert_allele_frequency_table_into_blobs_and_dfs = function(
 ) {
     ################################################################
     ### TEST
-    # list_fnames_tables = fn_simulate_tables(n_dates=3, n_sites=3, n_treatments=3, save_data_tables=TRUE)$list_fnames_tables
+    # list_fnames_tables = fn_simulate_tables(n_entries=50, n_dates=3, n_sites=3, n_treatments=3, n_loci=10e3, save_data_tables=TRUE)$list_fnames_tables
     # df_allele_frequency_table = utils::read.delim(list_fnames_tables$fname_genotypes, header=TRUE, check.names=FALSE)
     # database = DBI::dbConnect(drv=RSQLite::SQLite(), dbname="test.sqlite")
     # table_name = "genotypes"
@@ -869,7 +869,7 @@ fn_convert_allele_frequency_table_into_blobs_and_dfs = function(
 fn_prepare_data_table_and_extract_base_tables = function(df, database, table_name, verbose=TRUE) {
     ################################################################
     ### TEST
-    # list_fnames_tables = fn_simulate_tables(n_dates=3, n_sites=3, n_treatments=3, save_data_tables=TRUE)$list_fnames_tables
+    # list_fnames_tables = fn_simulate_tables(n_entries=50, n_dates=3, n_sites=3, n_treatments=3, n_loci=10e3, save_data_tables=TRUE)$list_fnames_tables
     # df = utils::read.delim(list_fnames_tables$fname_phenotypes, header=TRUE)
     # database = DBI::dbConnect(drv=RSQLite::SQLite(), dbname="test.sqlite")
     # table_name = "phenotypes"
@@ -1021,7 +1021,7 @@ fn_prepare_data_table_and_extract_base_tables = function(df, database, table_nam
                 if (sum(DBI::dbGetQuery(conn=database, statement="PRAGMA TABLE_LIST")$name %in% df_base_table) == 0) {
                     df_base_table_all = df_base_table
                 } else {
-                    df_base_table_all = rbind((DBI::dbGetQuery(conn=database, statement=paste("SELECT * FROM ", base_table_name))), df_base_table)
+                    df_base_table_all = rbind(DBI::dbGetQuery(conn=database, statement=sprintf("SELECT * FROM '%s'", base_table_name)), df_base_table)
                 }
                 for (i in 1:nrow(df_base_table_all)) {
                     # i = 1
@@ -1096,7 +1096,7 @@ fn_prepare_data_table_and_extract_base_tables = function(df, database, table_nam
 fn_set_classification_of_rows = function(df, database, table_name, verbose=verbose) {
     ################################################################
     ### TEST
-    # list_fnames_tables = fn_simulate_tables(n_dates=3, n_sites=3, n_treatments=3, save_data_tables=TRUE)$list_fnames_tables
+    # list_fnames_tables = fn_simulate_tables(n_entries=50, n_dates=3, n_sites=3, n_treatments=3, n_loci=10e3, save_data_tables=TRUE)$list_fnames_tables
     # unlink("test.sqlite")
     # database = DBI::dbConnect(drv=RSQLite::SQLite(), dbname="test.sqlite")
     # table_name = "phenotypes"
@@ -1121,7 +1121,7 @@ fn_set_classification_of_rows = function(df, database, table_name, verbose=verbo
         ### This occurs when the entries table was extracted from a genotypes table.
         vec_idx_rows_of_entries_tables_from_genotypes_table = (rowSums(df[, (colnames(df) %in% GLOBAL_list_required_colnames_per_table()$entries[-1])] == "UKN") == 3)
         ### Identify common entry names between incoming and existing entries tables
-        df_existing = DBI::dbGetQuery(conn=database, statement=paste0("SELECT * FROM ", table_name))
+        df_existing = DBI::dbGetQuery(conn=database, statement=sprintf("SELECT * FROM '%s'", table_name))
         vec_existing_entries = df_existing$ENTRY
         vec_incoming_entries = df$ENTRY
         vec_idx_incoming_info_to_be_replaced_with_existing_info = which(vec_incoming_entries %in% vec_existing_entries)
@@ -1133,10 +1133,10 @@ fn_set_classification_of_rows = function(df, database, table_name, verbose=verbo
     }
     prefix_of_HASH_and_UID_columns = fn_define_hash_and_UID_prefix(table_name=table_name)
     if (table_name == "genotypes") {
-        vec_existing_UIDs = DBI::dbGetQuery(conn=database, statement=paste0("SELECT ENTRY_UID FROM ", table_name))[,1]
+        vec_existing_UIDs = DBI::dbGetQuery(conn=database, statement=sprintf("SELECT ENTRY_UID FROM '%s'", table_name))[,1]
         vec_incoming_UIDs = df[[paste0("ENTRY_UID")]]
     } else {
-        vec_existing_UIDs = DBI::dbGetQuery(conn=database, statement=paste0("SELECT ", prefix_of_HASH_and_UID_columns, "_UID FROM ", table_name))[,1]
+        vec_existing_UIDs = DBI::dbGetQuery(conn=database, statement=sprintf("SELECT %s_UID FROM '%s'", prefix_of_HASH_and_UID_columns, table_name))[,1]
         vec_incoming_UIDs = df[[paste0(prefix_of_HASH_and_UID_columns, "_UID")]]
     }
     vec_bool_rows_in_existing_table_present_in_incoming_table = vec_existing_UIDs %in% vec_incoming_UIDs
@@ -1207,7 +1207,7 @@ fn_set_classification_of_rows = function(df, database, table_name, verbose=verbo
 fn_set_classification_of_columns = function(df, database, table_name, verbose=TRUE) {
     ################################################################
     ### TEST
-    # list_fnames_tables = fn_simulate_tables(n_dates=3, n_sites=3, n_treatments=3, save_data_tables=TRUE)$list_fnames_tables
+    # list_fnames_tables = fn_simulate_tables(n_entries=50, n_dates=3, n_sites=3, n_treatments=3, n_loci=10e3, save_data_tables=TRUE)$list_fnames_tables
     # unlink("test.sqlite")
     # df = utils::read.delim(list_fnames_tables$fname_phenotypes, header=TRUE)
     # database = DBI::dbConnect(drv=RSQLite::SQLite(), dbname="test.sqlite")
@@ -1287,7 +1287,7 @@ fn_set_classification_of_columns = function(df, database, table_name, verbose=TR
 fn_add_new_columns = function(df, database, table_name, verbose=TRUE) {
     ################################################################
     ### TEST
-    # list_fnames_tables = fn_simulate_tables(n_dates=3, n_sites=3, n_treatments=3, save_data_tables=TRUE)$list_fnames_tables
+    # list_fnames_tables = fn_simulate_tables(n_entries=50, n_dates=3, n_sites=3, n_treatments=3, n_loci=10e3, save_data_tables=TRUE)$list_fnames_tables
     # unlink("test.sqlite")
     # df = utils::read.delim(list_fnames_tables$fname_phenotypes, header=TRUE)
     # database = DBI::dbConnect(drv=RSQLite::SQLite(), dbname="test.sqlite")
@@ -1323,12 +1323,12 @@ fn_add_new_columns = function(df, database, table_name, verbose=TRUE) {
             } else {
                 column_type = "REAL"
             }
-            query = sprintf("ALTER TABLE '%s' ADD '%s' %s",
+            statement = sprintf("ALTER TABLE '%s' ADD '%s' '%s'",
                 table_name,
                 new_column,
                 column_type
             )
-            DBI::dbExecute(conn=database, statement=query)
+            DBI::dbExecute(conn=database, statement=statement)
             # head(DBI::dbGetQuery(conn=database, statement=paste0("SELECT * FROM ", table_name)))
         }
         if (verbose) {
@@ -1393,7 +1393,7 @@ fn_add_new_columns = function(df, database, table_name, verbose=TRUE) {
 fn_append = function(df, database, table_name, verbose=TRUE) {
     ################################################################
     ### TEST
-    # list_fnames_tables = fn_simulate_tables(n_dates=3, n_sites=3, n_treatments=3, save_data_tables=TRUE)$list_fnames_tables
+    # list_fnames_tables = fn_simulate_tables(n_entries=50, n_dates=3, n_sites=3, n_treatments=3, n_loci=10e3, save_data_tables=TRUE)$list_fnames_tables
     # unlink("test.sqlite")
     # df = utils::read.delim(list_fnames_tables$fname_phenotypes, header=TRUE)
     # database = DBI::dbConnect(drv=RSQLite::SQLite(), dbname="test.sqlite")
@@ -1539,7 +1539,7 @@ fn_append = function(df, database, table_name, verbose=TRUE) {
 fn_initialise_db = function(fname_db, list_df_data_tables, verbose=TRUE) {
     ################################################################
     ### TEST
-    # list_fnames_tables = fn_simulate_tables(n_dates=3, n_sites=3, n_treatments=3, save_data_tables=TRUE)$list_fnames_tables
+    # list_fnames_tables = fn_simulate_tables(n_entries=50, n_dates=3, n_sites=3, n_treatments=3, n_loci=10e3, save_data_tables=TRUE)$list_fnames_tables
     # fname_db = "test.sqlite"
     # list_df_data_tables = list(
     #     df_phenotypes = utils::read.delim(list_fnames_tables$fname_phenotypes, header=TRUE),
@@ -1646,7 +1646,7 @@ fn_initialise_db = function(fname_db, list_df_data_tables, verbose=TRUE) {
         # table_name = GLOBAL_df_valid_tables()$NAME[1]
         table_name_prefix = fn_define_hash_and_UID_prefix(table_name=table_name)
         ### Skip if the table has already been indexed
-        if (nrow(DBI::dbGetQuery(conn=database, statement=paste0("PRAGMA INDEX_LIST(", table_name, ")"))) > 0) {next}
+        if (nrow(DBI::dbGetQuery(conn=database, statement=sprintf("PRAGMA INDEX_LIST('%s')", table_name))) > 0) {next}
         if (verbose) {
             print(paste0("Creating unique indexes for the ", table_name_prefix, "_UID column in the ", table_name, " table."))
         }
@@ -1654,9 +1654,11 @@ fn_initialise_db = function(fname_db, list_df_data_tables, verbose=TRUE) {
         vec_table_names = DBI::dbGetQuery(conn=database, statement="PRAGMA TABLE_LIST")$name
         if (sum(vec_table_names %in% table_name) > 0) {
             if (table_name != "genotypes") {
-                DBI::dbExecute(conn=database, statement=paste0("CREATE UNIQUE INDEX IDX_", table_name_prefix, " ON ", table_name, "(", table_name_prefix, "_UID)"))
+                # DBI::dbExecute(conn=database, statement=paste0("CREATE UNIQUE INDEX IDX_", table_name_prefix, " ON ", table_name, "(", table_name_prefix, "_UID)"))
+                DBI::dbExecute(conn=database, statement=sprintf("CREATE UNIQUE INDEX IDX_%s ON %s('%s_UID')", table_name_prefix, table_name, table_name_prefix))
             } else {
-                DBI::dbExecute(conn=database, statement=paste0("CREATE UNIQUE INDEX IDX_", table_name_prefix, " ON ", table_name, "(ENTRY_UID)"))
+                # DBI::dbExecute(conn=database, statement=paste0("CREATE UNIQUE INDEX IDX_", table_name_prefix, " ON ", table_name, "(ENTRY_UID)"))
+                DBI::dbExecute(conn=database, statement=sprintf("CREATE UNIQUE INDEX IDX_%s ON %s('ENTRY_UID')", table_name_prefix, table_name))
             }
         }
     }
