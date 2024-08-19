@@ -634,7 +634,7 @@ fn_add_hash_UID_and_remove_duplicate_rows = function(df, database, table_name, v
     if (table_name != "entries") {
         vec_hash_incoming = unlist(apply(df[, vec_idx_identifying_columns, drop=FALSE], MARGIN=1, FUN=rlang::hash))
     } else {
-        vec_hash_incoming = rlang::hash(df$ENTRY)
+        vec_hash_incoming = unlist(lapply(df$ENTRY, FUN=rlang::hash))
     }
     ### Define the HASH column
     eval(parse(text=paste0("df$", prefix_of_HASH_and_UID_columns, "_HASH = vec_hash_incoming")))
@@ -1635,23 +1635,23 @@ fn_initialise_db = function(fname_db, list_df_data_tables, verbose=TRUE) {
         vec_df_base_names = vec_df_base_names[unlist(lapply(vec_df_base_names, FUN=function(x){!is.null((list_tables[[x]]))}))]
         for (df_base_name in vec_df_base_names) {
             # df_base_name = vec_df_base_names[1]
-            table_name = gsub("df_", "", df_base_name)
+            base_table_name = gsub("df_", "", df_base_name)
             if (verbose) {
                 print("--------------------------------------------------")
-                print(paste0("Initialise/append '", table_name, "' table"))
+                print(paste0("Initialise/append '", base_table_name, "' table"))
                 print("--------------------------------------------------")
             }
             df_base = list_tables[[df_base_name]]
-            if (sum(DBI::dbGetQuery(conn=database, statement="PRAGMA TABLE_LIST")$name %in% table_name) == 0) {
+            if (sum(DBI::dbGetQuery(conn=database, statement="PRAGMA TABLE_LIST")$name %in% base_table_name) == 0) {
                 ### Write the table if it has not been initialised yet
-                DBI::dbWriteTable(conn=database, name=table_name, value=df_base)
+                DBI::dbWriteTable(conn=database, name=base_table_name, value=df_base)
             } else {
                 ### Append the table into the existing table in the database
-                database = fn_append(df=df_base, database=database, table_name=table_name, verbose=verbose)
+                database = fn_append(df=df_base, database=database, table_name=base_table_name, verbose=verbose)
                 if (methods::is(database, "dbError")) {
                     error = chain(database, methods::new("dbError",
                         code=000,
-                        message=paste0("Error in fn_initialise_db(...): error appending '", table_name, "' table.")))
+                        message=paste0("Error in fn_initialise_db(...): error appending '", base_table_name, "' table.")))
                     return(error)
                 }
             }

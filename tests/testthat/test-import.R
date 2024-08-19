@@ -468,7 +468,6 @@ test_that("fn_update_database", {
     n = nrow(df); p = ncol(df)
     ### Remove quotes and newline characters in the data frame
     df = fn_remove_quotes_and_newline_characters_in_data(df=df)
-    # vec_idx_columns_HASH_UID_and_required = 1:17
     vec_idx_columns_HASH_UID_and_required = 1:15
     df_q1 = droplevels(df[1:floor(n/2),     1:floor(p/2)])
     df_q2 = droplevels(df[1:floor(n/2),     c(vec_idx_columns_HASH_UID_and_required, (floor(p/2)+1):p)])
