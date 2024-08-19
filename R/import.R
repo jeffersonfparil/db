@@ -787,7 +787,7 @@ fn_convert_allele_frequency_table_into_blobs_and_dfs = function(
         df_loci = rbind(list_df_loci$df, list_df_loci$df_duplicated_in_database)
     }
     ### Using the incomplete information from the genotypes table we define hashes and UIDs of the entries table
-    df_entries = data.frame(ENTRY=colnames(df_allele_frequency_table)[-1:-3], TYPE="UKN", POPULATION="UKN", CULTIVAR="UKN")
+    df_entries = data.frame(ENTRY=colnames(df_allele_frequency_table)[-1:-3], TYPE="UNK", POPULATION="UNK", CULTIVAR="UNK")
     list_df_entries = fn_add_hash_UID_and_remove_duplicate_rows(df=df_entries, database=database, table_name="entries", verbose=verbose)
     if (methods::is(list_df_entries, "dbError")) {
         error = chain(list_df_entries, methods::new("dbError",
@@ -802,17 +802,22 @@ fn_convert_allele_frequency_table_into_blobs_and_dfs = function(
     df_entries$ENTRY_UID = NA
     for (i in 1:nrow(df_entries)) {
         entry_name = df_entries$ENTRY[i]
-        idx = which(list_df_entries$df_duplicated_in_database$ENTRY == entry_name)
-        if (length(idx) < 1) {next}
-        if (length(idx) < 1) {
+        idx_duplicated = which(list_df_entries$df_duplicated_in_database$ENTRY == entry_name)
+        idx_unique = which(list_df_entries$df$ENTRY == entry_name)
+        if ((length(idx_duplicated) > 1) | (length(idx_unique) > 1)) {
             error = methods::new("dbError",
                 code=000,
                 message=paste0("Error in fn_convert_allele_frequency_table_into_blobs_and_dfs(...): ",
                 "Duplicate entry names is not allowed in the genotype data. Please rectify names."))
             return(error)
         }
-        df_entries$ENTRY_HASH[i] = list_df_entries$df_duplicated_in_database$ENTRY_HASH[idx]
-        df_entries$ENTRY_UID[i] = list_df_entries$df_duplicated_in_database$ENTRY_UID[idx]
+        if (length(idx_duplicated) > length(idx_unique)) {
+            df_entries$ENTRY_HASH[i] = list_df_entries$df_duplicated_in_database$ENTRY_HASH[idx_duplicated]
+            df_entries$ENTRY_UID[i] = list_df_entries$df_duplicated_in_database$ENTRY_UID[idx_duplicated]
+        } else {
+            df_entries$ENTRY_HASH[i] = list_df_entries$df$ENTRY_HASH[idx_unique]
+            df_entries$ENTRY_UID[i] = list_df_entries$df$ENTRY_UID[idx_unique]
+        }
     }
     vec_existing_tables = DBI::dbGetQuery(conn=database, statement=paste0("PRAGMA TABLE_LIST"))$name
     if (sum(vec_existing_tables == "entries") == 1) {
@@ -973,7 +978,13 @@ fn_prepare_data_table_and_extract_base_tables = function(df, database, table_nam
                         base_table_name, "' table from '", table_name, "' data table.")))
                     return(error)
                 }
-                df_base_table = fn_add_hash_UID_and_remove_duplicate_rows(df=df_base_table, database=database, table_name=base_table_name, verbose=verbose)$df
+                # df_base_table = fn_add_hash_UID_and_remove_duplicate_rows(df=df_base_table, database=database, table_name=base_table_name, verbose=verbose)$df
+                list_df_base_table = fn_add_hash_UID_and_remove_duplicate_rows(df=df_base_table, database=database, table_name=base_table_name, verbose=verbose)
+                if (base_table_name != "entries") {
+                    df_base_table = list_df_base_table$df
+                } else {
+                    df_base_table = rbind(list_df_base_table$df, list_df_base_table$df_duplicated_in_database)
+                }
                 if (methods::is(df_base_table, "dbError")) {
                     error = chain(df_base_table, methods::new("dbError",
                         code=000,
@@ -1008,7 +1019,12 @@ fn_prepare_data_table_and_extract_base_tables = function(df, database, table_nam
                 } else {
                     colnames(df_base_table) = vec_required_column_names
                 }
-                df_base_table = fn_add_hash_UID_and_remove_duplicate_rows(df=df_base_table, database=database, table_name=base_table_name, verbose=verbose)$df
+                list_df_base_table = fn_add_hash_UID_and_remove_duplicate_rows(df=df_base_table, database=database, table_name=base_table_name, verbose=verbose)
+                if (base_table_name != "entries") {
+                    df_base_table = list_df_base_table$df
+                } else {
+                    df_base_table = rbind(list_df_base_table$df, list_df_base_table$df_duplicated_in_database)
+                }
                 if (methods::is(df_base_table, "dbError")) {
                     error = chain(df_base_table, methods::new("dbError",
                         code=000,
@@ -1124,7 +1140,7 @@ fn_set_classification_of_rows = function(df, database, table_name, verbose=verbo
     if (table_name == "entries") {
         ### For entries table we use the entry names to identify unique entries if the type, population and cultivar information are all unknown.
         ### This occurs when the entries table was extracted from a genotypes table.
-        vec_idx_rows_of_entries_tables_from_genotypes_table = (rowSums(df[, (colnames(df) %in% GLOBAL_list_required_colnames_per_table()$entries[-1])] == "UKN") == 3)
+        vec_idx_rows_of_entries_tables_from_genotypes_table = (rowSums(df[, (colnames(df) %in% GLOBAL_list_required_colnames_per_table()$entries[-1])] == "UNK") == 3)
         ### Identify common entry names between incoming and existing entries tables
         df_existing = DBI::dbGetQuery(conn=database, statement=sprintf("SELECT * FROM '%s'", table_name))
         vec_existing_entries = df_existing$ENTRY
@@ -1439,6 +1455,7 @@ fn_append = function(df, database, table_name, verbose=TRUE) {
     df = fn_remove_quotes_and_newline_characters_in_data(df, verbose=FALSE)
     ### If the existing table is the same as the incoming table, then there is nothing for us to do
     if (
+        (table_name != "entries") &&
         (list_set_classification_of_rows$n_rows_exclusive_to_existing_table == 0) &&
         (list_set_classification_of_columns$n_columns_exclusive_to_existing_table == 0) &&
         (list_set_classification_of_rows$n_rows_exclusive_to_incoming_table == 0) &&
@@ -1685,17 +1702,38 @@ fn_initialise_db = function(fname_db, list_df_data_tables, verbose=TRUE) {
     if (verbose) {
         print("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@")
         print("Initialised database contents:")
-        print(DBI::dbGetQuery(conn=database, statement="PRAGMA TABLE_LIST"))
+        df_database_tables_list = DBI::dbGetQuery(conn=database, statement="PRAGMA TABLE_LIST")
+        print(df_database_tables_list)
         print("Entries table:")
-        print(DBI::dbGetQuery(conn=database, statement="SELECT * FROM entries"))
+        if (sum(df_database_tables_list$name == "entries") > 0) {
+            print(DBI::dbGetQuery(conn=database, statement="SELECT * FROM entries"))
+        } else {
+            print("NULL")
+        }
         print("Sites table:")
-        print(DBI::dbGetQuery(conn=database, statement="SELECT * FROM sites"))
+        if (sum(df_database_tables_list$name == "sites") > 0) {
+            print(DBI::dbGetQuery(conn=database, statement="SELECT * FROM sites"))
+        } else {
+            print("NULL")
+        }
         print("Dates table:")
-        print(DBI::dbGetQuery(conn=database, statement="SELECT * FROM dates"))
+        if (sum(df_database_tables_list$name == "dates") > 0) {
+            print(DBI::dbGetQuery(conn=database, statement="SELECT * FROM dates"))
+        } else {
+            print("NULL")
+        }
         print("Traits table:")
-        print(DBI::dbGetQuery(conn=database, statement="SELECT * FROM traits"))
+        if (sum(df_database_tables_list$name == "traits") > 0) {
+            print(DBI::dbGetQuery(conn=database, statement="SELECT * FROM traits"))
+        } else {
+            print("NULL")
+        }
         print("Abiotics table:")
-        print(DBI::dbGetQuery(conn=database, statement="SELECT * FROM abiotics"))
+        if (sum(df_database_tables_list$name == "abiotics") > 0) {
+            print(DBI::dbGetQuery(conn=database, statement="SELECT * FROM abiotics"))
+        } else {
+            print("NULL")
+        }
         print("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@")
     }
     DBI::dbDisconnect(conn=database)
@@ -1843,7 +1881,7 @@ fn_update_database = function(fname_db, df, table_name, verbose=TRUE) {
             ### If all the rows are already present in the existing data table in the database, then we skip appending the associated base tables
             if (!is.null(list_tables)) {
                 for (i in 1:nrow(GLOBAL_df_valid_tables())) {
-                    # i = 2
+                    # i = 1
                     if (GLOBAL_df_valid_tables()$CLASS[i] != "base") {next}
                     base_table_name = GLOBAL_df_valid_tables()$NAME[i]
                     df_base_table  = list_tables[[paste0("df_", base_table_name)]]
@@ -1875,17 +1913,38 @@ fn_update_database = function(fname_db, df, table_name, verbose=TRUE) {
     if (verbose) {
         print("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@")
         print("Updated database contents:")
-        print(DBI::dbGetQuery(conn=database, statement="PRAGMA TABLE_LIST"))
+        df_database_tables_list = DBI::dbGetQuery(conn=database, statement="PRAGMA TABLE_LIST")
+        print(df_database_tables_list)
         print("Entries table:")
-        print(DBI::dbGetQuery(conn=database, statement="SELECT * FROM entries"))
+        if (sum(df_database_tables_list$name == "entries") > 0) {
+            print(DBI::dbGetQuery(conn=database, statement="SELECT * FROM entries"))
+        } else {
+            print("NULL")
+        }
         print("Sites table:")
-        print(DBI::dbGetQuery(conn=database, statement="SELECT * FROM sites"))
+        if (sum(df_database_tables_list$name == "sites") > 0) {
+            print(DBI::dbGetQuery(conn=database, statement="SELECT * FROM sites"))
+        } else {
+            print("NULL")
+        }
         print("Dates table:")
-        print(DBI::dbGetQuery(conn=database, statement="SELECT * FROM dates"))
+        if (sum(df_database_tables_list$name == "dates") > 0) {
+            print(DBI::dbGetQuery(conn=database, statement="SELECT * FROM dates"))
+        } else {
+            print("NULL")
+        }
         print("Traits table:")
-        print(DBI::dbGetQuery(conn=database, statement="SELECT * FROM traits"))
+        if (sum(df_database_tables_list$name == "traits") > 0) {
+            print(DBI::dbGetQuery(conn=database, statement="SELECT * FROM traits"))
+        } else {
+            print("NULL")
+        }
         print("Abiotics table:")
-        print(DBI::dbGetQuery(conn=database, statement="SELECT * FROM abiotics"))
+        if (sum(df_database_tables_list$name == "abiotics") > 0) {
+            print(DBI::dbGetQuery(conn=database, statement="SELECT * FROM abiotics"))
+        } else {
+            print("NULL")
+        }
         print("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@")
     }
     DBI::dbDisconnect(conn=database)
