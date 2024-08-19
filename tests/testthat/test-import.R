@@ -203,7 +203,7 @@ test_that("fn_prepare_data_table_and_extract_base_tables", {
     list_df_data_and_base_tables = fn_prepare_data_table_and_extract_base_tables(df=df_genotypes, database=database, table_name="genotypes", verbose=TRUE)
     expect_equal(names(list_df_data_and_base_tables), c("df_possibly_modified", "df_entries", "df_dates", "df_sites", "df_treatments", "df_traits", "df_abiotics", "df_loci"))
     expect_equal(dim(list_df_data_and_base_tables$df_possibly_modified), c(ncol(df_genotypes)-3, 2))
-    expect_equal(nrow(list_df_data_and_base_tables$df_entries), 50)
+    expect_equal(dim(list_df_data_and_base_tables$df_entries), c(50,6)) ### Skip the entries base table if the data table is genotypes as we do not have any information other than the entry names
     expect_equal(is.null(list_df_data_and_base_tables$df_dates), TRUE)
     expect_equal(is.null(list_df_data_and_base_tables$df_sites), TRUE)
     expect_equal(is.null(list_df_data_and_base_tables$df_treatments), TRUE)

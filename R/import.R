@@ -64,7 +64,7 @@ fn_define_hash_and_UID_prefix = function(table_name) {
 fn_check_import_inputs = function(df, database, table_name, check_UIDs=FALSE, check_if_table_exists=FALSE) {
     ################################################################
     ### TEST
-    # list_fnames_tables = fn_simulate_tables(save_data_tables=TRUE)$list_fnames_tables
+    # list_fnames_tables = fn_simulate_tables(n_entries=50, n_dates=3, n_sites=3, n_treatments=3, n_loci=10e3, save_data_tables=TRUE)$list_fnames_tables
     # df = utils::read.delim(list_fnames_tables$fname_phenotypes, header=TRUE)
     # database = DBI::dbConnect(drv=RSQLite::SQLite(), dbname="test.sqlite")
     # table_name = "phenotypes"
@@ -214,7 +214,7 @@ fn_check_import_inputs = function(df, database, table_name, check_UIDs=FALSE, ch
 fn_remove_quotes_and_newline_characters_in_data = function(df, verbose=TRUE) {
     ################################################################
     ### TEST
-    # list_fnames_tables = fn_simulate_tables(save_data_tables=TRUE)$list_fnames_tables
+    # list_fnames_tables = fn_simulate_tables(n_entries=50, n_dates=3, n_sites=3, n_treatments=3, n_loci=10e3, save_data_tables=TRUE)$list_fnames_tables
     # df = utils::read.delim(list_fnames_tables$fname_phenotypes, header=TRUE)
     # verbose = FALSE
     ################################################################
@@ -288,7 +288,7 @@ fn_remove_quotes_and_newline_characters_in_data = function(df, verbose=TRUE) {
 fn_add_POSIX_time = function(df, database, table_name, bool_add_FVI_year_season=TRUE, verbose=TRUE) {
     ################################################################
     ### TEST
-    # list_fnames_tables = fn_simulate_tables(save_data_tables=TRUE)$list_fnames_tables
+    # list_fnames_tables = fn_simulate_tables(n_entries=50, n_dates=3, n_sites=3, n_treatments=3, n_loci=10e3, save_data_tables=TRUE)$list_fnames_tables
     # df = utils::read.delim(list_fnames_tables$fname_environments, header=TRUE)
     # database = DBI::dbConnect(drv=RSQLite::SQLite(), dbname="test.sqlite")
     # table_name = "environments"
@@ -580,7 +580,7 @@ fn_rename_columns_remove_duplicate_columns_and_check_column_type_mismatch = func
 fn_add_hash_UID_and_remove_duplicate_rows = function(df, database, table_name, verbose=TRUE) {
     ################################################################
     ### TEST
-    # list_fnames_tables = fn_simulate_tables(save_data_tables=TRUE)$list_fnames_tables
+    # list_fnames_tables = fn_simulate_tables(n_entries=50, n_dates=3, n_sites=3, n_treatments=3, n_loci=10e3, save_data_tables=TRUE)$list_fnames_tables
     # df = utils::read.delim(list_fnames_tables$fname_phenotypes, header=TRUE)
     # database = DBI::dbConnect(drv=RSQLite::SQLite(), dbname="test.sqlite")
     # table_name = "phenotypes"
@@ -630,7 +630,12 @@ fn_add_hash_UID_and_remove_duplicate_rows = function(df, database, table_name, v
         vec_identifying_columns = c(vec_identifying_columns, GLOBAL_list_required_colnames_per_table()$additional_IDs)
     }
     vec_idx_identifying_columns = which(colnames(df) %in% vec_identifying_columns)
-    vec_hash_incoming = unlist(apply(df[, vec_idx_identifying_columns, drop=FALSE], MARGIN=1, FUN=rlang::hash))
+    ### Use only the entry names for the entries base table to accommodate the limited information available from the allele frequency tables or genotypes data table
+    if (table_name != "entries") {
+        vec_hash_incoming = unlist(apply(df[, vec_idx_identifying_columns, drop=FALSE], MARGIN=1, FUN=rlang::hash))
+    } else {
+        vec_hash_incoming = rlang::hash(df$ENTRY)
+    }
     ### Define the HASH column
     eval(parse(text=paste0("df$", prefix_of_HASH_and_UID_columns, "_HASH = vec_hash_incoming")))
     ### Remove duplicate rows from the incoming table
@@ -662,8 +667,8 @@ fn_add_hash_UID_and_remove_duplicate_rows = function(df, database, table_name, v
             return(error)
         }
         ### Extract the existing has and UIDs
-        vec_hash_existing = DBI::dbGetQuery(conn=database, statement=paste0("SELECT ", prefix_of_HASH_and_UID_columns, "_HASH FROM ", table_name))[, 1]
-        vec_UID_existing = DBI::dbGetQuery(conn=database, statement=paste0("SELECT ", prefix_of_HASH_and_UID_columns, "_UID FROM ", table_name))[, 1]
+        vec_hash_existing = DBI::dbGetQuery(conn=database, statement=sprintf("SELECT %s_HASH FROM '%s'", prefix_of_HASH_and_UID_columns, table_name))[, 1]
+        vec_UID_existing = DBI::dbGetQuery(conn=database, statement=sprintf("SELECT %s_UID FROM '%s'", prefix_of_HASH_and_UID_columns, table_name))[, 1]
         ### Identify the duplicate rows by hashes
         vec_bool_incoming_rows_duplicates = vec_hash_incoming %in% vec_hash_existing
         vec_bool_existing_rows_duplicates = vec_hash_existing %in% vec_hash_incoming
@@ -672,6 +677,26 @@ fn_add_hash_UID_and_remove_duplicate_rows = function(df, database, table_name, v
         vec_UID_existing = 0
         vec_bool_incoming_rows_duplicates = rep(FALSE, times=nrow(df))
         vec_bool_existing_rows_duplicates = NULL
+    }
+    ### If we're dealing with entries table, then we prioritise known data, i.e. do not UNK from either the existing or incoming data if other than UNK is present
+    if ((table_name == "entries") & (sum(vec_existing_tables %in% table_name) == 1)) {
+        df_existing_table = DBI::dbGetQuery(conn=database, statement=sprintf("SELECT * FROM '%s'", table_name))
+        vec_idx_incoming_rows_duplicates = which(vec_bool_incoming_rows_duplicates)
+        bool_at_least_one_UNK_replaced = FALSE
+        for (i in vec_idx_incoming_rows_duplicates) {
+            for (column_name in GLOBAL_list_required_colnames_per_table()$entries[-1]) {
+                str_existing = eval(parse(text=paste0("df_existing_table$", column_name, "[i]")))
+                str_incoming = eval(parse(text=paste0("df$", column_name, "[i]")))
+                if ((str_existing == "UNK") & (str_incoming != "UNK")) {
+                    eval(parse(text=paste0("df_existing_table$", column_name, "[i] = str_incoming")))
+                    if (!bool_at_least_one_UNK_replaced) {bool_at_least_one_UNK_replaced = TRUE}
+                }
+            }
+        }
+        ### If at least one instance of UNK was replaced then we overwrite the existing table
+        if (bool_at_least_one_UNK_replaced) {
+            DBI::dbWriteTable(conn=database, name=table_name, value=df_existing_table)
+        }
     }
     ### Divide the table into rows without duplicates in the existing database table and those which do
     df_duplicated_in_database = df[vec_bool_incoming_rows_duplicates, , drop=FALSE]
