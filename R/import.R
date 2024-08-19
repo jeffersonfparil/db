@@ -1485,8 +1485,7 @@ fn_append = function(df, database, table_name, verbose=TRUE) {
     ### If we're dealing with entries table, then we prioritise known data, i.e. if incoming data has unknown "UNK" data while the existing entries table does not then we use the former rather than the latter data points.
     if (table_name == "entries") {
         df_existing_table = DBI::dbGetQuery(conn=database, statement=sprintf("SELECT * FROM '%s'", table_name))
-        vec_idx_incoming_rows_duplicates = which(vec_idx_incoming_intersecting_rows)
-        for (i in vec_idx_incoming_rows_duplicates) {
+        for (i in vec_idx_incoming_intersecting_rows) {
             for (column_name in GLOBAL_list_required_colnames_per_table()$entries[-1]) {
                 str_existing = eval(parse(text=paste0("df_existing_table$", column_name, "[i]")))
                 str_incoming = eval(parse(text=paste0("df$", column_name, "[i]")))
