@@ -1486,9 +1486,11 @@ fn_append = function(df, database, table_name, verbose=TRUE) {
     if (table_name == "entries") {
         df_existing_table = DBI::dbGetQuery(conn=database, statement=sprintf("SELECT * FROM '%s'", table_name))
         for (i in vec_idx_incoming_intersecting_rows) {
+            incoming_entry_name = df$ENTRY[i]
+            idx_row_existing_table = which(df_existing_table$ENTRY == incoming_entry_name)
             for (column_name in GLOBAL_list_required_colnames_per_table()$entries[-1]) {
-                str_existing = eval(parse(text=paste0("df_existing_table$", column_name, "[i]")))
                 str_incoming = eval(parse(text=paste0("df$", column_name, "[i]")))
+                str_existing = eval(parse(text=paste0("df_existing_table$", column_name, "[idx_row_existing_table]")))
                 if ((str_existing != "UNK") & (str_incoming == "UNK")) {
                     eval(parse(text=paste0("df$", column_name, "[i] = str_existing")))
                 }
