@@ -678,26 +678,6 @@ fn_add_hash_UID_and_remove_duplicate_rows = function(df, database, table_name, v
         vec_bool_incoming_rows_duplicates = rep(FALSE, times=nrow(df))
         vec_bool_existing_rows_duplicates = NULL
     }
-    ### If we're dealing with entries table, then we prioritise known data, i.e. do not UNK from either the existing or incoming data if other than UNK is present
-    if ((table_name == "entries") & (sum(vec_existing_tables %in% table_name) == 1)) {
-        df_existing_table = DBI::dbGetQuery(conn=database, statement=sprintf("SELECT * FROM '%s'", table_name))
-        vec_idx_incoming_rows_duplicates = which(vec_bool_incoming_rows_duplicates)
-        bool_at_least_one_UNK_replaced = FALSE
-        for (i in vec_idx_incoming_rows_duplicates) {
-            for (column_name in GLOBAL_list_required_colnames_per_table()$entries[-1]) {
-                str_existing = eval(parse(text=paste0("df_existing_table$", column_name, "[i]")))
-                str_incoming = eval(parse(text=paste0("df$", column_name, "[i]")))
-                if ((str_existing == "UNK") & (str_incoming != "UNK")) {
-                    eval(parse(text=paste0("df_existing_table$", column_name, "[i] = str_incoming")))
-                    if (!bool_at_least_one_UNK_replaced) {bool_at_least_one_UNK_replaced = TRUE}
-                }
-            }
-        }
-        ### If at least one instance of UNK was replaced then we overwrite the existing table
-        if (bool_at_least_one_UNK_replaced) {
-            DBI::dbWriteTable(conn=database, name=table_name, value=df_existing_table)
-        }
-    }
     ### Divide the table into rows without duplicates in the existing database table and those which do
     df_duplicated_in_database = df[vec_bool_incoming_rows_duplicates, , drop=FALSE]
     df = df[!vec_bool_incoming_rows_duplicates, , drop=FALSE]
@@ -1502,6 +1482,20 @@ fn_append = function(df, database, table_name, verbose=TRUE) {
     }
     ### If there are intersecting rows and new incoming columns, then we insert the incoming data from the new columns as well as overwrite the data in the intersecting columns
     vec_idx_incoming_intersecting_rows = which(!list_set_classification_of_rows$vec_bool_rows_exclusive_to_incoming_table)
+    ### If we're dealing with entries table, then we prioritise known data, i.e. if incoming data has unknown "UNK" data while the existing entries table does not then we use the former rather than the latter data points.
+    if (table_name == "entries") {
+        df_existing_table = DBI::dbGetQuery(conn=database, statement=sprintf("SELECT * FROM '%s'", table_name))
+        vec_idx_incoming_rows_duplicates = which(vec_idx_incoming_intersecting_rows)
+        for (i in vec_idx_incoming_rows_duplicates) {
+            for (column_name in GLOBAL_list_required_colnames_per_table()$entries[-1]) {
+                str_existing = eval(parse(text=paste0("df_existing_table$", column_name, "[i]")))
+                str_incoming = eval(parse(text=paste0("df$", column_name, "[i]")))
+                if ((str_existing != "UNK") & (str_incoming == "UNK")) {
+                    eval(parse(text=paste0("df$", column_name, "[i] = str_existing")))
+                }
+            }
+        }
+    }
     ### Define the UID prefix
     prefix_of_HASH_and_UID_columns = fn_define_hash_and_UID_prefix(table_name=table_name)
     ### Identify the numeric (REAL) and string (TEXT) columns to insert/overwrite data into
