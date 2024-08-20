@@ -347,7 +347,16 @@ fn_update_database_from_xlsx_or_tsv = function(
                 ### Use a large guess_max value to avoid mis classifying numeric columns as binary when there are many missing initial values.
                 ### Also define a bunch of missing values which can be invisible in MS Excel, e.g. \r\n.
                 ### Additionally, try converting each column into numerics but only if they were actually numerics, i.e. no warnings.
-                df = as.data.frame(readxl::read_excel(path=fname_xlsx, sheet=table_name, na=c("", " ", "\r", "\n", "\r\n", "NA", "na", "N/A", "NaN"), guess_max=round(0.01*.Machine$integer.max)), check.names=FALSE)
+                df = tryCatch(
+                    as.data.frame(readxl::read_excel(path=fname_xlsx, sheet=table_name, na=c("", " ", "\r", "\n", "\r\n", "NA", "na", "N/A", "NaN"), guess_max=round(0.01*.Machine$integer.max)), check.names=FALSE),
+                    error=function(e) {NULL}
+                )
+                if (is.null(df)) {
+                    if (verbose) {
+                        print(paste0("The sheet: ", table_name, " is missing from the MS Excel file: ", fname_xlsx, ". Skippi"))
+                    }
+                    next
+                }
                 for (j in 1:ncol(df)) {
                     # j = 1
                     vec_y = tryCatch(as.numeric(df[, j]), warning=function(x){"SKIP"})
