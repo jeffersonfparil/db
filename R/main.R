@@ -550,7 +550,7 @@ fn_export_phenotypes_and_genotypes_data_from_database = function(
         ),
         phenotypes=list(
             key_names=c("ENTRY_UID"),
-            column_names=unique(c("REPLICATION", "TREATMENT", "SITE", "YEAR", "MONTH", "DAY", vec_trait_names)),
+            column_names=unique(c("REPLICATION", "TREATMENT", "SITE", "ROW", "COLUMN", "YEAR", "MONTH", "DAY", vec_trait_names)),
             list_filters=list(
                 REPLICATION=vec_REPLICATION,
                 TREATMENT=vec_TREATMENT,
@@ -625,42 +625,43 @@ fn_export_phenotypes_and_genotypes_data_from_database = function(
     ))
 }
 
-fn_export_phenotypes_environments_and_genotypes_data_from_database = function() {
-    ################################################################
-    ### TEST
-    # set.seed(42069)
-    # fname_xlsx = fn_simulate_tables(
-    #     n_entries=50,
-    #     n_dates=3,
-    #     n_sites=3,
-    #     n_treatments=3,
-    #     n_loci=10e3,
-    #     save_data_tables=TRUE)$list_fnames_tables$fname_data_tables
-    # fname_db = "test.sqlite"
-    # fn_create_database_from_xlsx_or_tsv(fname_db=fname_db, fname_xlsx=fname_xlsx, overwrite=TRUE)
-    # vec_ENTRY = c("*")
-    # vec_REPLICATION = c("*")
-    # vec_TREATMENT = c("*")
-    # vec_SITE = c("*")
-    # vec_YEAR = c("*")
-    # vec_MONTH = c("*")
-    # vec_DAY = c("*")
-    # vec_trait_names = c("*")
-    # fname_basename_out = NULL
-    # overwrite = TRUE
-    # verbose = TRUE
-    ################################################################
-    # database = DBI::dbConnect(drv=RSQLite::SQLite(), dbname=fname_db)
-    # DBI::dbGetQuery(conn=database, statement="SELECT * FROM abiotics")
+# fn_export_phenotypes_environments_and_genotypes_data_from_database = function() {
+#     ################################################################
+#     ### TEST
+#     set.seed(42069)
+#     fname_xlsx = fn_simulate_tables(
+#         n_entries=50,
+#         n_dates=3,
+#         n_sites=3,
+#         n_treatments=3,
+#         n_loci=10e3,
+#         save_data_tables=TRUE)$list_fnames_tables$fname_data_tables
+#     fname_db = "test.sqlite"
+#     fn_create_database_from_xlsx_or_tsv(fname_db=fname_db, fname_xlsx=fname_xlsx, overwrite=TRUE)
+#     vec_ENTRY = c("*")
+#     vec_REPLICATION = c("*")
+#     vec_TREATMENT = c("*")
+#     vec_SITE = c("*")
+#     vec_YEAR = c("*")
+#     vec_MONTH = c("*")
+#     vec_DAY = c("*")
+#     vec_trait_names = c("*")
+#     fname_basename_out = NULL
+#     overwrite = TRUE
+#     verbose = TRUE
+#     ################################################################
+#     database = DBI::dbConnect(drv=RSQLite::SQLite(), dbname=fname_db)
+#     DBI::dbGetQuery(conn=database, statement="SELECT * FROM abiotics")
 
-    # list_tmp = fn_assess_df_subsets(database=database, table_name="phenotypes")
+#     list_tmp = fn_assess_df_subsets(database=database, table_name="phenotypes")
+#     list_tmp
 
-    # table_name = "phenotypes"
-    # list_tables_and_filters = list()
-    # eval(parse(text=paste0("list_tables_and_filters$`", table_name, "`=list(key_names=c('*'), column_names=vec_columns_to_show, list_filters=list_filters)")))
-    # df_tmp = fn_query_and_left_join_tables(database=database, list_tables_and_filters)
+#     table_name = "phenotypes"
+#     list_tables_and_filters = list()
+#     eval(parse(text=paste0("list_tables_and_filters$`", table_name, "`=list(key_names=c('*'), column_names=vec_columns_to_show, list_filters=list_filters)")))
+#     df_tmp = fn_query_and_left_join_tables(database=database, list_tables_and_filters)
 
 
 
-    # DBI::dbDisconnect(conn=database)
-}
+#     DBI::dbDisconnect(conn=database)
+# }
