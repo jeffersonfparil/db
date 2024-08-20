@@ -417,7 +417,9 @@ fn_query_and_left_join_tables = function(database, list_tables_and_filters, uniq
                 vec_on[i])
         }
     }
-    vec_query = c(vec_query, "WHERE", paste(vec_where, collapse="\nAND"))
+    if (length(vec_where) > 0) {
+        vec_query = c(vec_query, "WHERE", paste(vec_where, collapse="\nAND"))
+    }
     query = paste(vec_query, collapse="\n")
     ### Query
     df_query = DBI::dbGetQuery(conn=database, statement=query)

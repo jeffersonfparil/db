@@ -2,7 +2,7 @@
 % Please edit documentation in R/main.R
 \name{fn_export_phenotypes_and_genotypes_data_from_database}
 \alias{fn_export_phenotypes_and_genotypes_data_from_database}
-\title{Export phenotype and genotype data from the database using vectors of}
+\title{Export phenotype and genotype data from the database}
 \usage{
 fn_export_phenotypes_and_genotypes_data_from_database(
   fname_db,
@@ -57,7 +57,7 @@ to the allele frequencies of a sample.
 }
 }
 \description{
-Export phenotype and genotype data from the database using vectors of
+Export phenotype and genotype data from the database
 }
 \examples{
 fname_xlsx = fn_simulate_tables(

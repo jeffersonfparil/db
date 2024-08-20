@@ -2,7 +2,7 @@
 % Please edit documentation in R/main.R
 \name{fn_create_database_from_xlsx_or_tsv}
 \alias{fn_create_database_from_xlsx_or_tsv}
-\title{Create a single database from an MS Excel file}
+\title{Create a single database from an MS Excel file or tab-delimited files}
 \usage{
 fn_create_database_from_xlsx_or_tsv(
   fname_db = NULL,
@@ -51,7 +51,7 @@ Names of the samples in the header line can be any unique string of characters. 
 }
 }
 \description{
-Create a single database from an MS Excel file
+Create a single database from an MS Excel file or tab-delimited files
 }
 \examples{
 fname_xlsx = fn_simulate_tables(

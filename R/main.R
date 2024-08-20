@@ -1,4 +1,4 @@
-#' Create a single database from an MS Excel file
+#' Create a single database from an MS Excel file or tab-delimited files
 #' @param fname_db name of the SQLite database file. If NULL, then this will be saved in 
 #'  the same directory as `fname_xlsx` or `fname_phenotypes_tsv` with the same base name
 #'  but with `.sqlite` extension instead of `.xlsx` or `.tsv`. (Default=NULL)
@@ -185,7 +185,7 @@ fn_create_database_from_xlsx_or_tsv = function(
     return(0)
 }
 
-#' Update database using an MS Excel file
+#' Update database using an MS Excel file or tab-delimited files
 #' @param fname_db name of the SQLite database file.
 #' @param fname_xlsx name of the MS Excel file with 3 tabs where each tab represent one of 
 #'  the three data tables including the required columns for each. These tabs should be
@@ -405,7 +405,7 @@ fn_update_database_from_xlsx_or_tsv = function(
     return(0)
 }
 
-#' Export phenotype and genotype data from the database using vectors of 
+#' Export phenotype and genotype data from the database
 #' @param fname_db name of the SQLite database file.
 #' @param vec_ENTRY vector of entry names to extract. (Default=c("*"))
 #' @param vec_REPLICATION vector of replications to extract. (Default=c("*"))
@@ -642,7 +642,16 @@ fn_export_phenotypes_environments_and_genotypes_data_from_database = function() 
     # verbose = TRUE
     ################################################################
     # database = DBI::dbConnect(drv=RSQLite::SQLite(), dbname=fname_db)
-    # df_query = DBI::dbGetQuery(conn=database, statement="SELECT * FROM abiotics")
+    # DBI::dbGetQuery(conn=database, statement="SELECT * FROM abiotics")
+
+    # list_tmp = fn_assess_df_subsets(database=database, table_name="phenotypes")
+
+    # table_name = "phenotypes"
+    # list_tables_and_filters = list()
+    # eval(parse(text=paste0("list_tables_and_filters$`", table_name, "`=list(key_names=c('*'), column_names=vec_columns_to_show, list_filters=list_filters)")))
+    # df_tmp = fn_query_and_left_join_tables(database=database, list_tables_and_filters)
+
+
+
     # DBI::dbDisconnect(conn=database)
-    
 }

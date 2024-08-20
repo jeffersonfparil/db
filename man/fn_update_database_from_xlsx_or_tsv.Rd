@@ -2,7 +2,7 @@
 % Please edit documentation in R/main.R
 \name{fn_update_database_from_xlsx_or_tsv}
 \alias{fn_update_database_from_xlsx_or_tsv}
-\title{Update database using an MS Excel file}
+\title{Update database using an MS Excel file or tab-delimited files}
 \usage{
 fn_update_database_from_xlsx_or_tsv(
   fname_db,
@@ -46,7 +46,7 @@ Names of the samples in the header line can be any unique string of characters. 
 }
 }
 \description{
-Update database using an MS Excel file
+Update database using an MS Excel file or tab-delimited files
 }
 \examples{
 list_fnames_tables = fn_simulate_tables(
