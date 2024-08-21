@@ -128,19 +128,19 @@ fn_create_database_from_xlsx_or_tsv = function(
     list_df_data_tables = list(df_phenotypes=NULL, df_environments=NULL, df_genotypes=NULL)
     for (table_name in GLOBAL_df_valid_tables()$NAME[GLOBAL_df_valid_tables()$CLASS=="data"]) {
         # table_name = GLOBAL_df_valid_tables()$NAME[GLOBAL_df_valid_tables()$CLASS=="data"][1]
-        if (table_name == "genotypes") {
-            if (!is.null(fname_genotypes_tsv)) {
-                df = utils::read.delim(fname_genotypes_tsv, check.names=FALSE)
-            } else {
-                df = data.frame()
-            }
-        } else {
-            ### The tables in the MS Excel file takes priority
-            if (!is.null(fname_xlsx)) {
-                ### Use a large guess_max value to avoid mis classifying numeric columns as binary when there are many missing initial values.
-                ### Also define a bunch of missing values which can be invisible in MS Excel, e.g. \r\n.
-                ### Additionally, try converting each column into numerics but only if they were actually numerics, i.e. no warnings.
-                df = as.data.frame(readxl::read_excel(path=fname_xlsx, sheet=table_name, na=c("", " ", "\r", "\n", "\r\n", "NA", "na", "N/A", "NaN"), guess_max=round(0.01*.Machine$integer.max)), check.names=FALSE)
+        ### The tables in the MS Excel file takes priority
+        if (!is.null(fname_xlsx)) {
+            ### Use a large guess_max value to avoid mis classifying numeric columns as binary when there are many missing initial values.
+            ### Also define a bunch of missing values which can be invisible in MS Excel, e.g. \r\n.
+            df = tryCatch(
+                as.data.frame(readxl::read_excel(path=fname_xlsx, sheet=table_name, na=c("", " ", "\r", "\n", "\r\n", "NA", "na", "N/A", "NaN"), guess_max=round(0.01*.Machine$integer.max)), check.names=FALSE),
+                error=function(e) {
+                    ### For empty or non-existent data table tabs
+                    data.frame()
+                }
+            )
+            ### Additionally, try converting each column into numerics but only if they were actually numerics, i.e. no warnings.
+            if (nrow(df) > 0) {
                 for (j in 1:ncol(df)) {
                     # j = 1
                     vec_y = tryCatch(as.numeric(df[, j]), warning=function(x){"SKIP"})
@@ -150,24 +150,31 @@ fn_create_database_from_xlsx_or_tsv = function(
                         df[, j] = vec_y
                     }
                 }
-            }
-            ### If the tab in the MS Excel file is empty then we use the tab-delimited file
-            if (is.null(fname_xlsx) || (nrow(df) == 0)) {
-                if ((table_name == "phenotypes") & !is.null(fname_phenotypes_tsv)) {
-                    df = utils::read.delim(fname_phenotypes_tsv, header=TRUE, sep="\t", check.names=FALSE)
-                } else if ((table_name == "environments") & !is.null(fname_environments_tsv)) {
-                    df = utils::read.delim(fname_environments_tsv, header=TRUE, sep="\t", check.names=FALSE)
-                } else if ((table_name == "genotypes") & !is.null(fname_genotypes_tsv)) {
-                    df = utils::read.delim(fname_genotypes_tsv, header=TRUE, sep="\t", check.names=FALSE)
-                } else {
-                    df = data.frame()
-                }
+            } 
+        } else {
+            ### Set df as an empty data frame so that the output of when:
+            ###     (1) an MS Excel file is present but the data table tab is empty or absent, and when 
+            ###     (2) an MS Excel file was not used,
+            ### the result is both an empty data frame so that we can populate it with the tsv data file is present.
+            df = data.frame()
+        }
+        ### If an MS Excel file was not used or the tab in the MS Excel file is empty then we use the tab-delimited file
+        if (nrow(df) == 0) {
+            if ((table_name == "phenotypes") & !is.null(fname_phenotypes_tsv)) {
+                df = utils::read.delim(fname_phenotypes_tsv, header=TRUE, sep="\t", check.names=FALSE)
+            } else if ((table_name == "environments") & !is.null(fname_environments_tsv)) {
+                df = utils::read.delim(fname_environments_tsv, header=TRUE, sep="\t", check.names=FALSE)
+            } else if ((table_name == "genotypes") & !is.null(fname_genotypes_tsv)) {
+                df = utils::read.delim(fname_genotypes_tsv, header=TRUE, sep="\t", check.names=FALSE)
+            } else {
+                df = data.frame()
             }
         }
         if (nrow(df) > 0) {
             list_df_data_tables[[paste0("df_", table_name)]] = df
         }
     }
+    ### Initialise the database
     out = fn_initialise_db(fname_db=fname_db, list_df_data_tables=list_df_data_tables, verbose=verbose)
     if (methods::is(out, "dbError")) {
         return(out)
@@ -339,28 +346,22 @@ fn_update_database_from_xlsx_or_tsv = function(
         return(error)
     }
     ### Extract the data tables
-    list_df_data_tables = list(df_phenotypes=NULL, df_environments=NULL, df_genotypes=NULL)
     error = NULL
     for (table_name in GLOBAL_df_valid_tables()$NAME[GLOBAL_df_valid_tables()$CLASS=="data"]) {
-        # table_name = GLOBAL_df_valid_tables()$NAME[GLOBAL_df_valid_tables()$CLASS=="data"][3]
-        if ((table_name == "genotypes") && !is.null(fname_genotypes_tsv)) {
-            df = utils::read.delim(fname_genotypes_tsv, check.names=FALSE)
-        } else {
-            ### The tables in the MS Excel file takes priority
-            if (!is.null(fname_xlsx)) {
-                ### Use a large guess_max value to avoid mis classifying numeric columns as binary when there are many missing initial values.
-                ### Also define a bunch of missing values which can be invisible in MS Excel, e.g. \r\n.
-                ### Additionally, try converting each column into numerics but only if they were actually numerics, i.e. no warnings.
-                df = tryCatch(
-                    as.data.frame(readxl::read_excel(path=fname_xlsx, sheet=table_name, na=c("", " ", "\r", "\n", "\r\n", "NA", "na", "N/A", "NaN"), guess_max=round(0.01*.Machine$integer.max)), check.names=FALSE),
-                    error=function(e) {NULL}
-                )
-                if (is.null(df)) {
-                    if (verbose) {
-                        print(paste0("The sheet: ", table_name, " is missing from the MS Excel file: ", fname_xlsx, ". Skippi"))
-                    }
-                    next
+        # table_name = GLOBAL_df_valid_tables()$NAME[GLOBAL_df_valid_tables()$CLASS=="data"][1]
+        ### The tables in the MS Excel file takes priority
+        if (!is.null(fname_xlsx)) {
+            ### Use a large guess_max value to avoid mis classifying numeric columns as binary when there are many missing initial values.
+            ### Also define a bunch of missing values which can be invisible in MS Excel, e.g. \r\n.
+            df = tryCatch(
+                as.data.frame(readxl::read_excel(path=fname_xlsx, sheet=table_name, na=c("", " ", "\r", "\n", "\r\n", "NA", "na", "N/A", "NaN"), guess_max=round(0.01*.Machine$integer.max)), check.names=FALSE),
+                error=function(e) {
+                    ### For empty or non-existent data table tabs
+                    data.frame()
                 }
+            )
+            ### Additionally, try converting each column into numerics but only if they were actually numerics, i.e. no warnings.
+            if (nrow(df) > 0) {
                 for (j in 1:ncol(df)) {
                     # j = 1
                     vec_y = tryCatch(as.numeric(df[, j]), warning=function(x){"SKIP"})
@@ -370,25 +371,27 @@ fn_update_database_from_xlsx_or_tsv = function(
                         df[, j] = vec_y
                     }
                 }
-            }
-            ### If MS Excel file is NULL or a tab is empty then we use the tab-delimited file
-            if (is.null(fname_xlsx) || (nrow(df) == 0)) {
-                if ((table_name == "phenotypes") & !is.null(fname_phenotypes_tsv)) {
-                    df = utils::read.delim(fname_phenotypes_tsv, header=TRUE, sep="\t", check.names=FALSE)
-                } else if ((table_name == "environments") & !is.null(fname_environments_tsv)) {
-                    df = utils::read.delim(fname_environments_tsv, header=TRUE, sep="\t", check.names=FALSE)
-                } else if ((table_name == "genotypes") & !is.null(fname_genotypes_tsv)) {
-                    df = utils::read.delim(fname_genotypes_tsv, header=TRUE, sep="\t", check.names=FALSE)
-                } else {
-                    df = data.frame()
-                }
-            }
-        }
-        if (nrow(df) > 0) {
-            list_df_data_tables[[paste0("df_", table_name)]] = df
+            } 
         } else {
-            next
+            ### Set df as an empty data frame so that the output of when:
+            ###     (1) an MS Excel file is present but the data table tab is empty or absent, and when 
+            ###     (2) an MS Excel file was not used,
+            ### the result is both an empty data frame so that we can populate it with the tsv data file is present.
+            df = data.frame()
         }
+        ### If an MS Excel file was not used or the tab in the MS Excel file is empty then we use the tab-delimited file
+        if (nrow(df) == 0) {
+            if ((table_name == "phenotypes") & !is.null(fname_phenotypes_tsv)) {
+                df = utils::read.delim(fname_phenotypes_tsv, header=TRUE, sep="\t", check.names=FALSE)
+            } else if ((table_name == "environments") & !is.null(fname_environments_tsv)) {
+                df = utils::read.delim(fname_environments_tsv, header=TRUE, sep="\t", check.names=FALSE)
+            } else if ((table_name == "genotypes") & !is.null(fname_genotypes_tsv)) {
+                df = utils::read.delim(fname_genotypes_tsv, header=TRUE, sep="\t", check.names=FALSE)
+            } else {
+                df = data.frame()
+            }
+        }
+        ### Update the database
         out = fn_update_database(fname_db=fname_db, df=df, table_name=table_name, verbose=verbose)
         if (methods::is(out, "dbError")) {
             if (is.null(error)) {

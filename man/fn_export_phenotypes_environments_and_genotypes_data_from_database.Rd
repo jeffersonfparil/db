@@ -84,4 +84,5 @@ list_fnames_out = fn_export_phenotypes_environments_and_genotypes_data_from_data
      vec_ENTRY=vec_entry_names)
 unlink(list_fnames_out$fname_phenotypes)
 unlink(list_fnames_out$fname_genotypes)
+unlink(list_fnames_out$fname_environments)
 }
