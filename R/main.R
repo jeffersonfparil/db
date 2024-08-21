@@ -528,6 +528,16 @@ fn_export_phenotypes_and_genotypes_data_from_database = function(
     if (vec_trait_names[1]=="*") {
         vec_trait_names = unique(DBI::dbGetQuery(conn=database, statement="SELECT TRAIT FROM traits")[,1])
     }
+    ### Include ROW and/or COLUMN fields in the phenotypes table if they exist
+    vec_column_names = c("REPLICATION", "TREATMENT", "SITE", "YEAR", "MONTH", "DAY", vec_trait_names)
+    vec_phenotype_column_names = DBI::dbGetQuery(conn=database, statement="PRAGMA TABLE_INFO(phenotypes)")$name
+    if (sum(vec_phenotype_column_names == "ROW") > 0) {
+        vec_column_names = c(vec_column_names, "ROW")
+    }
+    if (sum(vec_phenotype_column_names == "COLUMN") > 0) {
+        vec_column_names = c(vec_column_names, "COLUMN")
+    }
+    vec_column_names = unique(vec_column_names)
     ### Extract the corresponding entry UIDs of the entry names
     df_entries = DBI::dbGetQuery(conn=database, statement="SELECT * FROM entries")
     vec_ENTRY_UID = df_entries$ENTRY_UID[df_entries$ENTRY %in% vec_ENTRY]
@@ -550,7 +560,7 @@ fn_export_phenotypes_and_genotypes_data_from_database = function(
         ),
         phenotypes=list(
             key_names=c("ENTRY_UID"),
-            column_names=unique(c("REPLICATION", "TREATMENT", "SITE", "ROW", "COLUMN", "YEAR", "MONTH", "DAY", vec_trait_names)),
+            column_names=vec_column_names,
             list_filters=list(
                 REPLICATION=vec_REPLICATION,
                 TREATMENT=vec_TREATMENT,
