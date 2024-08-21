@@ -128,8 +128,12 @@ fn_create_database_from_xlsx_or_tsv = function(
     list_df_data_tables = list(df_phenotypes=NULL, df_environments=NULL, df_genotypes=NULL)
     for (table_name in GLOBAL_df_valid_tables()$NAME[GLOBAL_df_valid_tables()$CLASS=="data"]) {
         # table_name = GLOBAL_df_valid_tables()$NAME[GLOBAL_df_valid_tables()$CLASS=="data"][1]
-        if ((table_name == "genotypes") & !is.null(fname_genotypes_tsv)) {
-            df = utils::read.delim(fname_genotypes_tsv, check.names=FALSE)
+        if (table_name == "genotypes") {
+            if (!is.null(fname_genotypes_tsv)) {
+                df = utils::read.delim(fname_genotypes_tsv, check.names=FALSE)
+            } else {
+                df = data.frame()
+            }
         } else {
             ### The tables in the MS Excel file takes priority
             if (!is.null(fname_xlsx)) {
