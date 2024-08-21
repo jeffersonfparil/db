@@ -945,7 +945,7 @@ fn_prepare_data_table_and_extract_base_tables = function(df, database, table_nam
     df_loci = NULL
     ### Extract the base tables
     for (i in 1:nrow(GLOBAL_df_valid_tables())) {
-        # i = 1
+        # i = 3
         ### Skip if not a base table
         if (GLOBAL_df_valid_tables()$CLASS[i] != "base") {next}
         ### Skip if the base table does not extract its contents from the current data table
@@ -1020,18 +1020,19 @@ fn_prepare_data_table_and_extract_base_tables = function(df, database, table_nam
                     colnames(df_base_table) = vec_required_column_names
                 }
                 list_df_base_table = fn_add_hash_UID_and_remove_duplicate_rows(df=df_base_table, database=database, table_name=base_table_name, verbose=verbose)
-                if (base_table_name != "entries") {
-                    df_base_table = list_df_base_table$df
-                } else {
-                    df_base_table = rbind(list_df_base_table$df, list_df_base_table$df_duplicated_in_database)
-                }
-                if (methods::is(df_base_table, "dbError")) {
-                    error = chain(df_base_table, methods::new("dbError",
+                # if (base_table_name != "entries") {
+                #     df_base_table = list_df_base_table$df
+                # } else {
+                #     df_base_table = rbind(list_df_base_table$df, list_df_base_table$df_duplicated_in_database)
+                # }
+                if (methods::is(list_df_base_table, "dbError")) {
+                    error = chain(list_df_base_table, methods::new("dbError",
                         code=000,
                         message=paste0("Error in fn_prepare_data_table_and_extract_base_tables(...): error adding UIDs and removing duplicate rows for incoming base '",
                         base_table_name, "' table from '", table_name, "' data table.")))
                     return(error)
                 }
+                df_base_table = rbind(list_df_base_table$df, list_df_base_table$df_duplicated_in_database)
                 ### Add base table UIDs into the source data table
                 base_table_prefix_of_HASH_and_UID_columns = fn_define_hash_and_UID_prefix(table_name=base_table_name)
                 # vec_base_UIDs = df_base_table$`base_table_prefix_of_HASH_and_UID_columns_UID`
@@ -1613,7 +1614,7 @@ fn_initialise_db = function(fname_db, list_df_data_tables, verbose=TRUE) {
     database = DBI::dbConnect(drv=RSQLite::SQLite(), dbname=fname_db)
     ### Prepare the data tables and extract the base tables from the data tables
     for (table_name in GLOBAL_df_valid_tables()$NAME[GLOBAL_df_valid_tables()$CLASS=="data"]) {
-        # table_name = GLOBAL_df_valid_tables()$NAME[GLOBAL_df_valid_tables()$CLASS=="data"][3]
+        # table_name = GLOBAL_df_valid_tables()$NAME[GLOBAL_df_valid_tables()$CLASS=="data"][2]
         df = list_df_data_tables[[paste0("df_", table_name)]]
         if (is.null(df)) {
             df = list_df_data_tables[[table_name]]
@@ -1651,7 +1652,7 @@ fn_initialise_db = function(fname_db, list_df_data_tables, verbose=TRUE) {
         vec_df_base_names = names(list_tables)[-1]
         vec_df_base_names = vec_df_base_names[unlist(lapply(vec_df_base_names, FUN=function(x){!is.null((list_tables[[x]]))}))]
         for (df_base_name in vec_df_base_names) {
-            # df_base_name = vec_df_base_names[1]
+            # df_base_name = vec_df_base_names[2]
             base_table_name = gsub("df_", "", df_base_name)
             if (verbose) {
                 print("--------------------------------------------------")

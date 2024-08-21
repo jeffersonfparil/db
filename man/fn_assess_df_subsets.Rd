@@ -65,6 +65,8 @@ list_df_data_tables = list(
 fn_initialise_db(fname_db=fname_db, list_df_data_tables=list_df_data_tables, verbose=TRUE)
 database = DBI::dbConnect(drv=RSQLite::SQLite(), dbname=fname_db)
 table_name = "phenotypes"
+df_table_info = DBI::dbGetQuery(conn=database, 
+     statement=paste0("PRAGMA TABLE_INFO(", table_name, ")"))
 list_filters=list(
             REPLICATION="*",
             MONTH=c(1, 12),
