@@ -391,6 +391,8 @@ fn_update_database_from_xlsx_or_tsv = function(
                 df = data.frame()
             }
         }
+        ### Skip if the data table is empty, i.e. none was provided either in the MS Excel file nor tsv file
+        if (nrow(df) == 0) {next}
         ### Update the database
         out = fn_update_database(fname_db=fname_db, df=df, table_name=table_name, verbose=verbose)
         if (methods::is(out, "dbError")) {
@@ -726,7 +728,7 @@ fn_export_phenotypes_environments_and_genotypes_data_from_database = function(
     # vec_trait_names = c("*")
     # vec_abiotic_names = c("*")
     # fname_basename_out = NULL
-    # overwrite = TRUE
+    # overwrite = FALSE
     # verbose = TRUE
     ################################################################
     ### Extract genotypes and phenotypes data (includes input checks)
@@ -743,6 +745,9 @@ fn_export_phenotypes_environments_and_genotypes_data_from_database = function(
         fname_basename_out=fname_basename_out,
         overwrite=overwrite,
         verbose=verbose)
+    if (methods::is(list_fnames_phenotypes_and_genotypes_out, "dbError")) {
+        return(list_fnames_phenotypes_and_genotypes_out)
+    }
     ### Open the database connection
     database = DBI::dbConnect(drv=RSQLite::SQLite(), dbname=fname_db)
     ### Define the query vectors if defaults were used

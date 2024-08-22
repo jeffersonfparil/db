@@ -30,7 +30,7 @@ fn_boxplot = function() {
     ### Plot phenotypes data table
 
     ### Load the data
-    df_phenotypes = read.delim(file=fname_phenotypes_tsv, sep="\t", header=TRUE, check.names=FALSE)
+    df_phenotypes = utils::read.delim(file=fname_phenotypes_tsv, sep="\t", header=TRUE, check.names=FALSE)
     ### Define the explanatory and response variables
     vec_explanatory_column_names = c(GLOBAL_list_required_colnames_per_table()$phenotypes, GLOBAL_list_required_colnames_per_table()$additional_IDs)
     vec_explanatory_column_names = vec_explanatory_column_names[vec_explanatory_column_names %in% colnames(df_phenotypes)]
@@ -63,7 +63,7 @@ fn_boxplot = function() {
                     ")")))
                 string_explanatory = paste(vec_explanatory_column_names, collapse=" + ")
             }
-            str(df_for_plotting)
+            utils::str(df_for_plotting)
             # boxplot(y ~ ., data=df_for_plotting)
             p = eval(parse(text=paste0("ggplot2::ggplot(data=df_for_plotting, mapping=ggplot2::aes(x=", explanatory_variable_name, ", y=", response_variable_name, ", fill=", explanatory_variable_name, "))")))
             p = p + ggplot2::geom_boxplot()
@@ -71,7 +71,7 @@ fn_boxplot = function() {
                 p = p + eval(parse(text=paste0("ggplot2::facet_wrap(~ ", string_explanatory, ")")))
             }
             p
-            dev.off()
+            grDevices::dev.off()
         }
     }
     return(0)

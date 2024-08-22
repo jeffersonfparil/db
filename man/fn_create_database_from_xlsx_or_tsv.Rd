@@ -46,7 +46,7 @@ Names of the samples in the header line can be any unique string of characters. 
 }
 \value{
 \itemize{
-\item Ok: 0
+\item Ok: fname_db: filename of the SQLite database file
 \item Err: dbError
 }
 }
