@@ -22,7 +22,7 @@
 #' @param overwrite Overwrite the database file, if it exists? (Default=FALSE)
 #' @param verbose Show messages? (Default=TRUE)
 #' @returns
-#'  - Ok: 0
+#'  - Ok: fname_db: filename of the SQLite database file
 #'  - Err: dbError
 #' @examples
 #' fname_xlsx = fn_simulate_tables(
@@ -193,7 +193,7 @@ fn_create_database_from_xlsx_or_tsv = function(
         }
         DBI::dbDisconnect(conn=database)
     }
-    return(0)
+    return(fname_db)
 }
 
 #' Update database using an MS Excel file or tab-delimited files
@@ -217,7 +217,7 @@ fn_create_database_from_xlsx_or_tsv = function(
 #'  Names of the samples in the header line can be any unique string of characters. (Default=NULL)
 #' @param verbose Show messages? (Default=TRUE)
 #' @returns
-#'  - Ok: 0
+#'  - Ok: fname_db: filename of the SQLite database file
 #'  - Err: dbError
 #' @examples
 #' list_fnames_tables = fn_simulate_tables(
@@ -418,7 +418,7 @@ fn_update_database_from_xlsx_or_tsv = function(
         }
         DBI::dbDisconnect(conn=database)
     }
-    return(0)
+    return(fname_db)
 }
 
 #' Export phenotype and genotype data from the database
@@ -802,6 +802,7 @@ fn_export_phenotypes_environments_and_genotypes_data_from_database = function(
     }
     if (verbose) {print("Extracting environments data from the database...")}
     df_query = db::fn_query_and_left_join_tables(database=database, list_tables_and_filters=list_tables_and_filters, unique_column_name=NULL, verbose=verbose)
+    DBI::dbDisconnect(conn=database)
     if (methods::is(df_query, "dbError")) {
         return(df_query)
     }

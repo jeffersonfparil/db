@@ -214,7 +214,9 @@ erDiagram
         TEXT ROW_OR_BLOCK
         TEXT COLUMN
         TEXT SITE
-        REAL POSIX_DATE_TIME
+        REAL YEAR
+        REAL MONTH
+        REAL DAY
         REAL _NUMERIC_AND_BINARY_TRAITS_
         TEXT _CATEGORICAL_TRAITS_
     }
@@ -228,7 +230,9 @@ erDiagram
         TEXT REPLICATION
         TEXT SENSOR
         TEXT SITE
-        REAL POSIX_DATE_TIME
+        REAL YEAR
+        REAL MONTH
+        REAL DAY
         REAL _NUMERIC_AND_BINARY_ABIOTICS_
         TEXT _CATEGORICAL_ABIOTICS_
     }
