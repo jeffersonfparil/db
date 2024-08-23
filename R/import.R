@@ -1866,11 +1866,11 @@ fn_update_database = function(fname_db, df, table_name, verbose=TRUE) {
         if (verbose) {
             print(paste0("Appending the incoming '", table_name, "' table into the database."))
         }
-        ### Convert the allele frequency table into 2-column genotypes table
-        if (table_name == "genotypes") {
-            list_tables_genotypes = fn_prepare_data_table_and_extract_base_tables(df=df, database=database, table_name=table_name, verbose=verbose)
-            df = list_tables_genotypes$df_possibly_modified
-        }
+        # ### Convert the allele frequency table into 2-column genotypes table
+        # if (table_name == "genotypes") {
+        list_tables_genotypes = fn_prepare_data_table_and_extract_base_tables(df=df, database=database, table_name=table_name, verbose=verbose)
+        df = list_tables_genotypes$df_possibly_modified
+        # }
         database = fn_append(df=df, database=database, table_name=table_name, verbose=verbose)
         ### Initialise the data table if it has not been initialised yet
         if (methods::is(database, "dbError") && grepl("Please initialise the table first", database@message)) {
@@ -1897,7 +1897,7 @@ fn_update_database = function(fname_db, df, table_name, verbose=TRUE) {
             ### If all the rows are already present in the existing data table in the database, then we skip appending the associated base tables
             if (!is.null(list_tables)) {
                 for (i in 1:nrow(GLOBAL_df_valid_tables())) {
-                    # i = 1
+                    # i = 2
                     if (GLOBAL_df_valid_tables()$CLASS[i] != "base") {next}
                     base_table_name = GLOBAL_df_valid_tables()$NAME[i]
                     df_base_table  = list_tables[[paste0("df_", base_table_name)]]
