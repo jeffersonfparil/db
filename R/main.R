@@ -371,7 +371,7 @@ fn_update_database_from_xlsx_or_tsv = function(
                         df[, j] = vec_y
                     }
                 }
-            } 
+            }
         } else {
             ### Set df as an empty data frame so that the output of when:
             ###     (1) an MS Excel file is present but the data table tab is empty or absent, and when 

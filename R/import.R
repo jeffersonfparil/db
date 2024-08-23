@@ -324,19 +324,34 @@ fn_add_POSIX_time = function(df, database, table_name, bool_add_FVI_year_season=
         eval(parse(text=paste0("df$`", toupper(datetime_name), "` = as.numeric(df$`", toupper(datetime_name), "`)")))
         vec_idx_year_month_day_hour = c(vec_idx_year_month_day_hour, which(toupper(colnames(df)) == datetime_name))
     }
-    if (length(vec_idx_year_month_day_hour) == 4) {
-        str_hour = as.character(df[1, vec_idx_year_month_day_hour[4]])
-        vec_colon_count = sum(grepl(":", unlist(strsplit(str_hour, split=""))))
-        if (vec_colon_count < 2) {
-            str_hour_suffix = ":00:00"
-        } else if (vec_colon_count == 2) {
-            str_hour_suffix = ":00"
+    df$POSIX_DATE_TIME = NA
+    for (i in 1:nrow(df)) {
+        vec_df_row = df[i, , drop=TRUE]
+        if (length(vec_idx_year_month_day_hour) == 4) {
+            str_hour = as.character(df[i, vec_idx_year_month_day_hour[4]])
+            vec_colon_count = sum(grepl(":", unlist(strsplit(str_hour, split=""))))
+            if (vec_colon_count < 2) {
+                str_hour_suffix = ":00:00"
+            } else if (vec_colon_count == 2) {
+                str_hour_suffix = ":00"
+            } else {
+                str_hour_suffix = ""
+            }
+            df$POSIX_DATE_TIME[i] = as.numeric(
+                as.POSIXlt(
+                    paste0(
+                        paste(as.character(vec_df_row[vec_idx_year_month_day_hour[1:3]]), collapse="-")
+                        , " ", as.character(vec_df_row[vec_idx_year_month_day_hour[4]]), str_hour_suffix
+                    )
+                )
+            )
         } else {
-            str_hour_suffix = ""
+            df$POSIX_DATE_TIME[i] = as.numeric(
+                as.POSIXlt(
+                    paste(as.character(vec_df_row[vec_idx_year_month_day_hour]), collapse="-")
+                )
+            )
         }
-        df$POSIX_DATE_TIME = unlist(apply(df, MARGIN=1, FUN=function(x){as.numeric(as.POSIXlt(paste0(paste(as.character(x[vec_idx_year_month_day_hour[1:3]]), collapse="-"), " ", as.character(x[vec_idx_year_month_day_hour[4]]), str_hour_suffix)))}))
-    } else {
-        df$POSIX_DATE_TIME = unlist(apply(df, MARGIN=1, FUN=function(x){as.numeric(as.POSIXlt(paste(as.character(x[vec_idx_year_month_day_hour]), collapse="-")))}))
     }
     vec_POSIX_DATE_TIME = as.POSIXlt(df$POSIX_DATE_TIME)
     if (
