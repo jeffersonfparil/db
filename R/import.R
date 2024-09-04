@@ -1550,10 +1550,6 @@ fn_append = function(df, database, table_name, verbose=TRUE) {
     }
     vec_idx_numerics = which(vec_idx_numerics)
     vec_idx_strings = which(vec_idx_strings)
-    print(head(df))
-    print(colnames(df))
-    print(vec_idx_numerics)
-    print(vec_idx_strings)
     if (verbose) {
         print(paste0("There are row intersections between the existing and incoming '", table_name, "' tables."))
         print(paste0("Replacing the contents of the existing table at the intersecting rows and columns using the data from the incoming '", table_name, "' table."))
@@ -1561,16 +1557,19 @@ fn_append = function(df, database, table_name, verbose=TRUE) {
     if (verbose) {pb = utils::txtProgressBar(min=0, max=length(vec_idx_incoming_intersecting_rows), style=3)}
     for (i in vec_idx_incoming_intersecting_rows) {
         # i = 1
+        vec_numeric_values = df[i, vec_idx_numerics]
+        vec_numeric_values[is.na(vec_numeric_values)] = 'NULL'
+
         query = paste0(
             "UPDATE ",
             table_name,
             " SET ",
-            paste0(paste0(colnames(df)[vec_idx_numerics], "=", df[i, vec_idx_numerics], collapse=", "), ","),
+            paste0(paste0(colnames(df)[vec_idx_numerics], "=", vec_numeric_values, collapse=", "), ","),
             paste0(paste0(colnames(df)[vec_idx_strings], "='", df[i, vec_idx_strings], collapse="', "), "'"),
             " WHERE ", prefix_of_HASH_and_UID_columns, "_UID=",
             eval(parse(text=paste0("df$", prefix_of_HASH_and_UID_columns, "_UID[i]")))
         )
-        print(query)
+        # print(query)
         DBI::dbExecute(conn=database, statement=query)
         if (verbose) {utils::setTxtProgressBar(pb, i)}
     }
