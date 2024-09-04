@@ -1550,6 +1550,8 @@ fn_append = function(df, database, table_name, verbose=TRUE) {
     }
     vec_idx_numerics = which(vec_idx_numerics)
     vec_idx_strings = which(vec_idx_strings)
+    print(vec_idx_numerics)
+    print(vec_idx_strings)
     if (verbose) {
         print(paste0("There are row intersections between the existing and incoming '", table_name, "' tables."))
         print(paste0("Replacing the contents of the existing table at the intersecting rows and columns using the data from the incoming '", table_name, "' table."))
