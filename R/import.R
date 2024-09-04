@@ -1550,6 +1550,8 @@ fn_append = function(df, database, table_name, verbose=TRUE) {
     }
     vec_idx_numerics = which(vec_idx_numerics)
     vec_idx_strings = which(vec_idx_strings)
+    print(head(df))
+    print(colnames(df))
     print(vec_idx_numerics)
     print(vec_idx_strings)
     if (verbose) {
