@@ -1533,8 +1533,21 @@ fn_append = function(df, database, table_name, verbose=TRUE) {
     ### Define the UID prefix
     prefix_of_HASH_and_UID_columns = fn_define_hash_and_UID_prefix(table_name=table_name)
     ### Identify the numeric (REAL) and string (TEXT) columns to insert/overwrite data into
-    vec_idx_numerics = which(unlist(apply(df, MARGIN=1, FUN=function(x){!is.na(x) & is.numeric(x)})))
-    vec_idx_strings = which(unlist(apply(df, MARGIN=1, FUN=function(x){!is.na(x) & !is.numeric(x)})))
+    vec_idx_numerics = c()
+    vec_idx_strings = c()
+    for (j in 1:ncol(df)) {
+        vec_y = df[, j]
+        vec_y = vec_y[!is.na(vec_y)]
+        if (length(vec_y) == 0) {
+            bool_numeric = FALSE
+            bool_string = FALSE
+        } else {
+            bool_numeric = is.numeric(vec_y)
+            bool_string = !bool_numeric
+        }
+        vec_idx_numerics = c(vec_idx_numerics, bool_numeric)
+        vec_idx_strings = c(vec_idx_strings, bool_string)
+    }
     if (verbose) {
         print(paste0("There are row intersections between the existing and incoming '", table_name, "' tables."))
         print(paste0("Replacing the contents of the existing table at the intersecting rows and columns using the data from the incoming '", table_name, "' table."))
