@@ -1570,6 +1570,7 @@ fn_append = function(df, database, table_name, verbose=TRUE) {
             " WHERE ", prefix_of_HASH_and_UID_columns, "_UID=",
             eval(parse(text=paste0("df$", prefix_of_HASH_and_UID_columns, "_UID[i]")))
         )
+        print(query)
         DBI::dbExecute(conn=database, statement=query)
         if (verbose) {utils::setTxtProgressBar(pb, i)}
     }
