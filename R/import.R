@@ -645,6 +645,8 @@ fn_add_hash_UID_and_remove_duplicate_rows = function(df, database, table_name, v
         vec_identifying_columns = c(vec_identifying_columns, GLOBAL_list_required_colnames_per_table()$additional_IDs)
     }
     vec_idx_identifying_columns = which(colnames(df) %in% vec_identifying_columns)
+    ### Sort the identifying columns alphabetically so we get the same hashes regardless of column order in the input file/s
+    vec_idx_identifying_columns = vec_idx_identifying_columns[order(colnames(df)[vec_idx_identifying_columns])]
     ### Use only the entry names for the entries base table to accommodate the limited information available from the allele frequency tables or genotypes data table
     if (table_name != "entries") {
         vec_hash_incoming = unlist(apply(df[, vec_idx_identifying_columns, drop=FALSE], MARGIN=1, FUN=rlang::hash))
