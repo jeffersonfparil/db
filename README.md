@@ -208,15 +208,18 @@ erDiagram
         TEXT PHENOTYPE_HASH
         REAL PHENOTYPE_UID
         TEXT ENTRY
-        TEXT TREATMENT
+        TEXT TYPE
+        TEXT POPULATION
+        TEXT CULTIVAR
         TEXT REPLICATION
-        TEXT PLOT
-        TEXT ROW_OR_BLOCK
-        TEXT COLUMN
+        TEXT TREATMENT
         TEXT SITE
         REAL YEAR
         REAL MONTH
         REAL DAY
+        TEXT PLOT
+        TEXT ROW_OR_BLOCK
+        TEXT COLUMN
         REAL _NUMERIC_AND_BINARY_TRAITS_
         TEXT _CATEGORICAL_TRAITS_
     }
